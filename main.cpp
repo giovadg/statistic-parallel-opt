@@ -15,25 +15,34 @@ using namespace std;
 int main(int argc, char** argv) {
   size_t n         = (argc > 1) ? stoull(argv[1]) : 5000;
   int num_threads  = (argc > 2) ? stoull(argv[2]) : 1;
-  size_t w         = (argc > 3) ? stoull(argv[3]) : 256;
-  size_t nt        = (argc > 4) ? stoull(argv[4]) : 8;
-  int    Ntest_speed = (argc > 5) ? stoull(argv[5]) : 1;
+  size_t w         = (argc > 3) ? stoull(argv[3]) : n/5;
+  int    Ntest_speed = (argc > 4) ? stoull(argv[4]) : 1;
 
-  vector<double> x(n), out(n), out2(n);
-  fill(out.begin(),out.end(),0.0);
-  fill(out2.begin(),out2.end(),0.0);
+  vector<double> x1(n);
+  vector<double> roll_av_x1_ser(n), roll_av_x1_pll(n); 
+  vector<double> x2(n);
+  vector<double> roll_av_x2_ser(n), roll_av_x2_pll(n); 
   
-  boost::mt19937 rng(123);
-  boost::normal_distribution<> initial_distribution(0,1);
-  boost::variate_generator<boost::mt19937&, boost::normal_distribution<>> initial_velocities_generator(rng,initial_distribution);
+  boost::mt19937 rng1(123);
+  boost::mt19937 rng2(100);
+  boost::normal_distribution<> initial_distribution1(0,1);
+  boost::normal_distribution<> initial_distribution2(1,2);
+
+  boost::variate_generator<boost::mt19937&, boost::normal_distribution<>> 
+  initial_velocities_generator1(rng1,initial_distribution1);
+
+  boost::variate_generator<boost::mt19937&, boost::normal_distribution<>> 
+  initial_velocities_generator2(rng2,initial_distribution2);
   
   for (size_t i = 0; i < n; i++){
-    x[i] = initial_velocities_generator();
+    x1[i] = initial_velocities_generator1();
+    x2[i] = initial_velocities_generator2();
   }
 
   for (int j = 0; j < Ntest_speed; j++){
     auto start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_serial(x, out, w);
+    kernels::rolling_mean_serial(x1, roll_av_x1_ser, w);
+    kernels::rolling_mean_serial(x2, roll_av_x2_ser, w);
     auto end  = chrono::high_resolution_clock::now();
     auto diff = chrono::duration<double>(end-start).count();
 
@@ -41,7 +50,8 @@ int main(int argc, char** argv) {
 
     {
     start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_parallel(x, out2, w, num_threads);
+    kernels::rolling_mean_parallel(x1, roll_av_x1_pll, w, num_threads);
+    kernels::rolling_mean_parallel(x2, roll_av_x2_pll, w, num_threads);
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     printf("parallel: %f [s] \n",diff);
@@ -49,14 +59,15 @@ int main(int argc, char** argv) {
 
   };
   // quick sanity check
-  double max_abs = 0.0;
+  vector<double> max_abs(2);
   for (size_t i = 0; i < n; ++i) {
-    if (isnan(out[i]) && isnan(out2[i])) continue;
-    max_abs = max(max_abs, abs(out[i] - out2[i]));
-    // if (out[i] == 0) cout << "out i zero: "<<i<<endl; 
-    // if (out2[i] == 0) cout << "out2 i zero: "<<i<<endl; 
+    if (isnan(roll_av_x1_ser[i]) && isnan(roll_av_x1_pll[i])) continue;
+    max_abs[0] = max(max_abs[0], abs(roll_av_x1_ser[i] - roll_av_x1_pll[i]));
+    if (isnan(roll_av_x2_ser[i]) && isnan(roll_av_x2_pll[i])) continue;
+    max_abs[1] = max(max_abs[1], abs(roll_av_x2_ser[i] - roll_av_x2_pll[i]));
+
   }
-  cout << "max_abs_diff: " << max_abs << "\n";
+  cout << "max_abs_diff_1: " << max_abs[0] <<  "\nmax_abs_diff_2: " << max_abs[1] <<"\n";
 
   return 0;
 }
