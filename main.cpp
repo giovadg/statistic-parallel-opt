@@ -60,7 +60,6 @@ int main(int argc, char** argv) {
     }else{
       timings[method] = diff;
     }
-    
 
     start = chrono::high_resolution_clock::now();
     kernels::rolling_mean_parallel(x1, roll_av_x1_pll, w, num_threads);
@@ -76,7 +75,7 @@ int main(int argc, char** argv) {
     }
 
     
-    for (bool nested_threads : {true,false}){
+    for (bool nested_threads : {false,true}){
     start = chrono::high_resolution_clock::now();
     kernels::rolling_mean_parallel_inputs(x_tot, roll_av_xtot_pll, w, num_threads, nested_threads);
     end  = chrono::high_resolution_clock::now();
@@ -91,7 +90,6 @@ int main(int argc, char** argv) {
     }else{
       timings[method] = diff;
     }
-    
     }
   };
   for (auto it=timings.begin(); it != timings.end();it++){

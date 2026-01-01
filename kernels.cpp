@@ -156,13 +156,14 @@ void rolling_mean_parallel_inputs(vector<vector<double>> &arrs_in, vector<vector
         args[jj].arr_in  = &arrs_in[jj];
         args[jj].arr_out = &arrs_out[jj];
         args[jj].w       = w;
-        args[jj].num_threads = num_threads/arrs_in.size();
+        args[jj].num_threads = std::max(1,int(num_threads/arrs_in.size()));
         
         // Range division
         args[jj].start_index = 0;
         args[jj].end_index   = arrs_in[jj].size();        
 
         if(nested_threads){
+            if (jj==0) printf("using a total of %d threads for par vect input and par vect treat \n \n", args[jj].num_threads * arrs_in.size());
             pthread_create(&th[jj], NULL, &rolling_mean_parallel_interface, &args[jj]);
         }else{         
             pthread_create(&th[jj], NULL, &rolling_mean_serial_interface, &args[jj]);
