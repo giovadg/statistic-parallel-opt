@@ -50,8 +50,8 @@ int main(int argc, char** argv) {
 
   for (int j = 0; j < Ntest_speed; j++){
     auto start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_serial(x1, roll_av_x1_ser, w);
-    kernels::rolling_mean_serial(x2, roll_av_x2_ser, w);
+    kernels::rolling_mean_serial_exec(x1, roll_av_x1_ser, w);
+    kernels::rolling_mean_serial_exec(x2, roll_av_x2_ser, w);
     auto end  = chrono::high_resolution_clock::now();
     auto diff = chrono::duration<double>(end-start).count();
     method = "serial vectors input - serial vector treatment:";

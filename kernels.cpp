@@ -13,15 +13,18 @@ using namespace std;
 namespace kernels {
 
 
-void rolling_mean_serial(const vector<double> &arr_in, vector<double> &arr_out, size_t &w){
+void rolling_mean_serial_exec(const vector<double> &arr_in, vector<double> &arr_out,
+                         size_t &w, int start_index, int end_index){
+
+    if (end_index == -1) end_index = arr_in.size();
 
     // 1. compute the first average
-    double sum = std::accumulate(arr_in.begin(), arr_in.begin()+w, 0.0);
-    arr_out[0] = sum/w;
+    double sum = std::accumulate(arr_in.begin()+start_index, arr_in.begin()+start_index+w, 0.0);
+    arr_out[start_index] = sum/w;
 
     // 3. Computes the other averages using DP
     //    Iterate from the starting index + 1 until the last available point   
-    for (int ii=1; ii<arr_in.size()-w;ii++){
+    for (int ii=start_index+1; ii<end_index-w;ii++){
         arr_out[ii] = (w*arr_out[ii-1] - arr_in[ii-1] + arr_in[ii+w-1])/w;
     }
 
@@ -45,21 +48,7 @@ void* rolling_mean_single_thr_exe(void* arg){
     // ThreadArgs* state = *(ThreadArgs*)arg;
     ThreadArgs* state = static_cast<ThreadArgs*>(arg);
 
-    auto init = state->arr_in->begin() + state->start_index;
-    
-    // 2. compute the first average
-    double sum = std::accumulate(init, init + state->w, 0.0);
-     (*state->arr_out)[state->start_index] = sum/state->w;
-
-    // define final point leaving out w elements for the average
-    auto final_point = state->end_index - state->w;
-
-    // 3. Computes the other averages using DP
-    //    Iterate from the starting index + 1 until the last available point
-    for (int ii=state->start_index+1; ii<final_point;ii++){
-        (*state->arr_out)[ii] = (state->w* (*state->arr_out)[ii-1] 
-                                - (*state->arr_in)[ii-1] + (*state->arr_in)[ii+state->w-1])/state->w;
-    }
+    rolling_mean_serial_exec(*state->arr_in, *state->arr_out, state->w, state->start_index, state->end_index);
     
     return nullptr; 
 }
@@ -136,7 +125,7 @@ void* rolling_mean_serial_interface(void* arg_inp){
 
     ThreadArgs* state = static_cast<ThreadArgs*>(arg_inp);
 
-    rolling_mean_serial(*state->arr_in, *state->arr_out, state->w);
+    rolling_mean_serial_exec(*state->arr_in, *state->arr_out, state->w);
     
     return nullptr;
 }
