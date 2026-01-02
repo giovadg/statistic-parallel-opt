@@ -19,20 +19,17 @@ int main(int argc, char** argv) {
   size_t w         = (argc > 4-1) ? stoull(argv[4-1]) : n/5;
   int    Ntest_speed = (argc > 5-1) ? stoull(argv[5-1]) : 1;
 
-  vector<double> x1(n);
-  vector<double> roll_av_x1_ser(n), roll_av_x1_pll(n); 
-  vector<double> x2(n);
-  vector<double> roll_av_x2_ser(n), roll_av_x2_pll(n); 
+  vector<double> x1(n), x2(n);
+  vector<double> roll_av_x1_ser(n), roll_av_x1_pll(n),  roll_av_x2_ser(n), roll_av_x2_pll(n); 
   vector<double> roll_corr_ser(n), roll_corr_pll(n); 
 
-  // choice of tuple: the algo could be used also for corr among vectors with different lengths
-
-  unordered_map<string,double> timings;
   string method;
+  unordered_map<string,double> timings;
   
   vector<vector<double>> x_tot;
   vector<vector<double>> roll_av_xtot_pll(2,vector<double>(n));
   
+  // Random number generators: 2 Gaussians, with different mean and std. Different seeds.
   boost::mt19937 rng1(123);
   boost::mt19937 rng2(100);
   boost::normal_distribution<> initial_distribution1(0,1);
@@ -61,41 +58,38 @@ int main(int argc, char** argv) {
 
     kernels::rolling_mean_exec(x1, roll_av_x1_ser, w);
     kernels::rolling_mean_exec(x2, roll_av_x2_ser, w);
+
     auto tuple_mean = std::make_tuple(roll_av_x1_ser, roll_av_x2_ser); 
 
-    kernels::rolling_corr_exec(tuple_vect, tuple_mean, roll_corr_ser, w);
+    // computes both mean and correlation
+    kernels::rolling_mean_corr_exec(tuple_vect, tuple_mean, roll_corr_ser, w);
 
     auto end  = chrono::high_resolution_clock::now();
     auto diff = chrono::duration<double>(end-start).count();
     method = "serial vectors input - serial vector treatment:";
-    if (timings.find(method) != timings.end()){
-      timings[method] += diff;
-    }else{
-      timings[method] = diff;
-    }
-    start = chrono::high_resolution_clock::now();
+    timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
 
+    // --------------------------
+    // parallel approach: division of arrays in subarrays.
+    start = chrono::high_resolution_clock::now();
     kernels::rolling_mean_parallel(x1, roll_av_x1_pll, w, num_threads);
     kernels::rolling_mean_parallel(x2, roll_av_x2_pll, w, num_threads);
     tuple_mean = std::make_tuple(roll_av_x1_ser, roll_av_x2_ser);
-
-
     kernels::rolling_corr_parallel(tuple_vect, tuple_mean, roll_corr_pll, w, num_threads);
-
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     method = "serial vectors input - parallel vector treatment:";
+    timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
 
-    if (timings.find(method) != timings.end()){
-      timings[method] += diff;
-    }else{
-      timings[method] = diff;
-    }
 
-    
+    // parallel approach: parallelized on the different arrays
+    // if nested: each array divided also in subarray - not applicable for correlation -
     for (bool nested_threads : {false,true}){
     start = chrono::high_resolution_clock::now();
     kernels::rolling_mean_parallel_inputs(x_tot, roll_av_xtot_pll, w, num_threads, nested_threads);
+    tuple_mean = std::make_tuple(roll_av_x1_ser, roll_av_x2_ser);
+    kernels::rolling_corr_parallel(tuple_vect, tuple_mean, roll_corr_pll, w, num_threads);
+
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     if (nested_threads){
@@ -103,15 +97,12 @@ int main(int argc, char** argv) {
     }else{
       method="parallel vectors input - serial vector treatment:";// %f [s] \n",diff);
     }
-    if (timings.find(method) != timings.end()){
-      timings[method] += diff;
-    }else{
-      timings[method] = diff;
+    timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
     }
-    }
+
   };
   for (auto it=timings.begin(); it != timings.end();it++){
-    cout << it->first <<" "<< it->second<<" [s]"<<endl;
+    cout << it->first <<" "<< (it->second)/Ntest_speed<<" [s]"<<endl;
     cout <<" "<<endl;
   }
 

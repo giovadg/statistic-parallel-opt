@@ -15,9 +15,14 @@ void rolling_mean_parallel_inputs(vector<vector<double>> &arrs_in, vector<vector
 
 
 void rolling_corr_parallel(const tuple<vector<double>, vector<double>> &tuple_vect, 
-                        const tuple<vector<double>, vector<double>> &tuple_mean, 
+                        tuple<vector<double>, vector<double>> &tuple_mean, 
                         vector<double> &arr_out, size_t &w, int num_threads);
-void rolling_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
-                        const tuple<vector<double>, vector<double>> &tuple_mean, 
+
+void rolling_mean_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
+                        tuple<vector<double>, vector<double>> &tuple_mean, 
                         vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
+
+// void rolling_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
+//                         const tuple<vector<double>, vector<double>> &tuple_mean, 
+//                         vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
 };

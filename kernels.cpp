@@ -13,32 +13,34 @@ using namespace std;
 
 namespace kernels {
 
-
-
-void rolling_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
-                        const tuple<vector<double>, vector<double>> &tuple_mean, 
+void rolling_mean_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
+                        tuple<vector<double>, vector<double>> &tuple_mean, 
                         vector<double> &arr_out, size_t &w, int start_index, int end_index){
 
     auto& vect1 = std::get<0>(tuple_vect);
     auto& vect2 = std::get<1>(tuple_vect);
     auto& vect1_mean = std::get<0>(tuple_mean);
     auto& vect2_mean = std::get<1>(tuple_mean);
+
     if (end_index == -1) end_index = min(vect1.size(), vect2.size());
     
-    cout <<" "<<end_index<< " \n";
     double corr_NN = 0.0;
     double std1 = 0.0;
     double std2 = 0.0;
     double denom;
     // 1. compute the first corr
-    double Sv1v1    = 0.0;
-    double Sv2v2    = 0.0;
-    double Sv1v2    = 0.0;
+    double Sv1v1(0.0), Sv2v2(0.0), Sv1v2(0.0);
+    double mean_v1(0.0), mean_v2(0.0);
     for (int ii = start_index; ii < start_index+w; ii++){
         Sv1v1 += vect1[ii]* vect1[ii];
         Sv1v2 += vect1[ii]* vect2[ii];
         Sv2v2 += vect2[ii]* vect2[ii];
+        mean_v1 += vect1[ii];
+        mean_v2 += vect2[ii];
     }
+    vect1_mean[start_index] = mean_v1/w;
+    vect2_mean[start_index] = mean_v2/w;
+
     std1    = Sv1v1/w - vect1_mean[start_index] * vect1_mean[start_index];
     std2    = Sv2v2/w - vect2_mean[start_index] * vect2_mean[start_index];
     corr_NN = Sv1v2/w - vect1_mean[start_index] * vect2_mean[start_index];
@@ -51,6 +53,9 @@ void rolling_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect,
         Sv1v1 += vect1[ii+w-1]* vect1[ii+w-1] - vect1[ii-1]* vect1[ii-1] ;
         Sv1v2 += vect1[ii+w-1]* vect2[ii+w-1] - vect1[ii-1]* vect2[ii-1] ;
         Sv2v2 += vect2[ii+w-1]* vect2[ii+w-1] - vect2[ii-1]* vect2[ii-1] ;
+
+        vect1_mean[ii] = (w*vect1_mean[ii-1] - vect1[ii-1] + vect1[ii+w-1])/w;
+        vect2_mean[ii] = (w*vect2_mean[ii-1] - vect2[ii-1] + vect2[ii+w-1])/w;
     
         std1    = Sv1v1/w - vect1_mean[ii] * vect1_mean[ii];
         std2    = Sv2v2/w - vect2_mean[ii] * vect2_mean[ii];
@@ -63,6 +68,8 @@ void rolling_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect,
     }
     return;
 }
+
+
 
 void rolling_mean_exec(const vector<double> &arr_in, vector<double> &arr_out,
                          size_t &w, int start_index, int end_index){
@@ -83,67 +90,56 @@ void rolling_mean_exec(const vector<double> &arr_in, vector<double> &arr_out,
 }
 
 // define the structure of each thread input
-struct ThreadArgs_mean {
+struct Thread_Args {
     const vector<double>* arr_in;
     vector<double>* arr_out;
-    size_t w;
-    int start_index;
-    int end_index;
-    int num_threads;
-};
-struct ThreadArgs_corr {
     const tuple<vector<double>, vector<double>>* tuple_vect;
-    const tuple<vector<double>, vector<double>>* tuple_mean;
-    vector<double>* arr_out;
+    tuple<vector<double>, vector<double>>* tuple_mean;
     size_t w;
     int start_index;
     int end_index;
     int num_threads;
+    string method;
 };
 
 
+
 // single thread execution function
-void* rolling_mean_single_thr_exe(void* arg){
+void* single_thr_exe_interface(void* arg){
 
-    // 1. cast the void pointer to its structure
-    ThreadArgs_mean* state = static_cast<ThreadArgs_mean*>(arg);
+    // Cast the void pointer to its structure
+    Thread_Args* state = static_cast<Thread_Args*>(arg);
+    if (state->method == "mean")         rolling_mean_exec(*state->arr_in, *state->arr_out, state->w, state->start_index, state->end_index);
+    if (state->method == "correlation")  rolling_mean_corr_exec(*state->tuple_vect, *state->tuple_mean, *state->arr_out, state->w, state->start_index, state->end_index);
 
-    rolling_mean_exec(*state->arr_in, *state->arr_out, state->w, state->start_index, state->end_index);
-    
     return nullptr; 
 }
 
-// single thread execution function
-void* rolling_corr_single_thr_exe(void* arg){
 
-    // 1. cast the void pointer to its structure
-    ThreadArgs_corr* state = static_cast<ThreadArgs_corr*>(arg);
-
-    rolling_corr_exec(*state->tuple_vect, *state->tuple_mean, *state->arr_out, state->w, state->start_index, state->end_index);
-    
-    return nullptr; 
-}
 
 void rolling_mean_parallel(vector<double> &arr_in, vector<double> &arr_out, size_t &w, int num_threads){
+
+    string method = "mean";
 
     int chunk = arr_in.size()/num_threads;
 
     pthread_t th[num_threads];
 
     // Creation of the sing thread function arguments
-    ThreadArgs_mean args[num_threads]; 
+    Thread_Args args[num_threads]; 
 
     // Each thread has its own arguments
     for(int jj=0; jj<num_threads;jj++){
         args[jj].arr_in  = &arr_in;
         args[jj].arr_out = &arr_out;
         args[jj].w       = w;
-        
+        args[jj].method  = method;
+
         // Range division
         args[jj].start_index = jj * chunk;
         args[jj].end_index   = (jj == num_threads - 1) ? arr_in.size() : (jj + 1) * chunk+w;        
 
-        pthread_create(&th[jj], NULL, &rolling_mean_single_thr_exe, &args[jj]);
+        pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
     }
 
     // wait for threads to finish
@@ -155,9 +151,10 @@ void rolling_mean_parallel(vector<double> &arr_in, vector<double> &arr_out, size
 }
 
 void rolling_corr_parallel(const tuple<vector<double>, vector<double>> &tuple_vect, 
-                        const tuple<vector<double>, vector<double>> &tuple_mean, 
+                        tuple<vector<double>, vector<double>> &tuple_mean, 
                         vector<double> &arr_out, size_t &w, int num_threads){
 
+    string method = "correlation";
     auto& vect1 = std::get<0>(tuple_vect);
     auto& vect2 = std::get<1>(tuple_vect);
     int max_length = min(vect1.size(), vect2.size());
@@ -165,21 +162,21 @@ void rolling_corr_parallel(const tuple<vector<double>, vector<double>> &tuple_ve
     pthread_t th[num_threads];
 
     // Creation of the sing thread function arguments
-    ThreadArgs_corr args[num_threads]; 
+    Thread_Args args[num_threads]; 
 
-    cout << "s f s g \n";
     // Each thread has its own arguments
     for(int jj=0; jj<num_threads;jj++){
         args[jj].tuple_vect  = &tuple_vect;
         args[jj].tuple_mean = &tuple_mean;
         args[jj].arr_out = &arr_out;
         args[jj].w       = w;
+        args[jj].method       = method;
         
         // Range division
         args[jj].start_index = jj * chunk;
         args[jj].end_index   = (jj == num_threads - 1) ? max_length : (jj + 1) * chunk+w;        
 
-        pthread_create(&th[jj], NULL, &rolling_corr_single_thr_exe, &args[jj]);
+        pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
     }
 
     // wait for threads to finish
@@ -200,7 +197,7 @@ void rolling_corr_parallel(const tuple<vector<double>, vector<double>> &tuple_ve
 
 void* rolling_mean_parallel_interface(void* arg_inp){
 
-    ThreadArgs_mean* state = static_cast<ThreadArgs_mean*>(arg_inp);
+    Thread_Args* state = static_cast<Thread_Args*>(arg_inp);
 
     int num_threads = state->num_threads;
     int chunk = (*state->arr_in).size()/(num_threads);
@@ -208,7 +205,7 @@ void* rolling_mean_parallel_interface(void* arg_inp){
     pthread_t th[num_threads];
 
     // Creation of the sing thread function arguments
-    ThreadArgs_mean args[num_threads]; 
+    Thread_Args args[num_threads]; 
 
     // Each thread has its own arguments
     for(int jj=0; jj<num_threads;jj++){
@@ -221,7 +218,7 @@ void* rolling_mean_parallel_interface(void* arg_inp){
         args[jj].start_index = jj * chunk;
         args[jj].end_index = (jj == num_threads - 1) ? (*state->arr_in).size() : (jj + 1) * chunk+state->w;        
 
-        pthread_create(&th[jj], NULL, &rolling_mean_single_thr_exe, &args[jj]);
+        pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
     }
 
     // wait for threads to finish
@@ -234,9 +231,9 @@ void* rolling_mean_parallel_interface(void* arg_inp){
 
 
 
-void* rolling_mean_serial_interface(void* arg_inp){
+void* rolling_mean_exe_interface(void* arg_inp){
 
-    ThreadArgs_mean* state = static_cast<ThreadArgs_mean*>(arg_inp);
+    Thread_Args* state = static_cast<Thread_Args*>(arg_inp);
 
     rolling_mean_exec(*state->arr_in, *state->arr_out, state->w);
     
@@ -250,7 +247,7 @@ void rolling_mean_parallel_inputs(vector<vector<double>> &arrs_in, vector<vector
     pthread_t th[arrs_in.size()];
 
     // Creation of the sing thread function arguments
-    ThreadArgs_mean args[arrs_in.size()]; 
+    Thread_Args args[arrs_in.size()]; 
 
     // Each thread has its own arguments
     // for(int jj=0; jj<arrs_in.size();jj++){
@@ -268,7 +265,7 @@ void rolling_mean_parallel_inputs(vector<vector<double>> &arrs_in, vector<vector
             if (jj==0) printf("using a total of %d threads for par vect input and par vect treat \n \n", args[jj].num_threads * arrs_in.size());
             pthread_create(&th[jj], NULL, &rolling_mean_parallel_interface, &args[jj]);
         }else{         
-            pthread_create(&th[jj], NULL, &rolling_mean_serial_interface, &args[jj]);
+            pthread_create(&th[jj], NULL, &rolling_mean_exe_interface, &args[jj]);
         }
     }
 
