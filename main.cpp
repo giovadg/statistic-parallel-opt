@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
 
     auto end  = chrono::high_resolution_clock::now();
     auto diff = chrono::duration<double>(end-start).count();
-    method = "serial vectors input - serial vector treatment:";
+    method = "serial vectors input - serial vector treatment";
     timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
 
     // --------------------------
@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     kernels::rolling_corr_parallel(tuple_vect, tuple_mean, roll_corr_pll, w, num_threads);
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
-    method = "serial vectors input - parallel vector treatment:";
+    method = "serial vectors input - parallel vector treatment";
     timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
 
 
@@ -93,9 +93,9 @@ int main(int argc, char** argv) {
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     if (nested_threads){
-      method="parallel vectors input - parallel vector treatment:";// %f [s] \n",diff);
+      method="parallel vectors input - parallel vector treatment";// %f [s] \n",diff);
     }else{
-      method="parallel vectors input - serial vector treatment:";// %f [s] \n",diff);
+      method="parallel vectors input - serial vector treatment";// %f [s] \n",diff);
     }
     timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
     }
@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
   f << "method"<<";"<<"time"<<"\n";
 
   for (auto it=timings.begin(); it != timings.end();it++){
-    cout << it->first <<" "<< (it->second)/Ntest_speed<<" [s]"<<endl;
+    cout << it->first <<": "<< (it->second)/Ntest_speed<<" [s]"<<endl;
     cout <<" "<<endl;
     f << it->first<<";"<<it->second<<"\n";
   }
