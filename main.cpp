@@ -9,7 +9,7 @@
 #include <boost/random.hpp>
 #include <unistd.h>
 #include "kernels.hpp"
-
+#include <fstream>
 
 using namespace std; 
 
@@ -101,9 +101,13 @@ int main(int argc, char** argv) {
     }
 
   };
+  std::ofstream f("timing.csv");
+  f << "method"<<";"<<"time"<<"\n";
+
   for (auto it=timings.begin(); it != timings.end();it++){
     cout << it->first <<" "<< (it->second)/Ntest_speed<<" [s]"<<endl;
     cout <<" "<<endl;
+    f << it->first<<";"<<it->second<<"\n";
   }
 
   // quick sanity check
@@ -122,5 +126,6 @@ int main(int argc, char** argv) {
   cout << "comparison between serial and nested parallelism: \nmax_abs_diff_1: " << max_abs[2] <<  "\nmax_abs_diff_2: " << max_abs[3] <<"\n";
   cout << "Max correlation difference between serial and parallel: " << max_abs[4] <<"\n";
   cout <<"max correlation is: " << *max_element(roll_corr_ser.begin(), roll_corr_ser.end());
+  
   return 0;
 }
