@@ -13,14 +13,14 @@ using namespace std;
 
 namespace kernels {
 
-void rolling_mean_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
-                        tuple<vector<double>, vector<double>> &tuple_mean, 
+void rolling_mean_corr_exec(const vector<vector<double>> &vect, 
+                        vector<vector<double>> &vect_mean, 
                         vector<double> &arr_out, size_t &w, int start_index, int end_index){
 
-    auto& vect1 = std::get<0>(tuple_vect);
-    auto& vect2 = std::get<1>(tuple_vect);
-    auto& vect1_mean = std::get<0>(tuple_mean);
-    auto& vect2_mean = std::get<1>(tuple_mean);
+    auto& vect1 = vect[0];
+    auto& vect2 = vect[1];
+    auto& vect1_mean = vect_mean[0];
+    auto& vect2_mean = vect_mean[1];
 
     if (end_index == -1) end_index = min(vect1.size(), vect2.size());
     
@@ -93,8 +93,8 @@ void rolling_mean_exec(const vector<double> &arr_in, vector<double> &arr_out,
 struct Thread_Args {
     const vector<double>* arr_in;
     vector<double>* arr_out;
-    const tuple<vector<double>, vector<double>>* tuple_vect;
-    tuple<vector<double>, vector<double>>* tuple_mean;
+    const vector<vector<double>>* vect;
+    vector<vector<double>>* vect_mean;
     size_t w;
     int start_index;
     int end_index;
@@ -110,7 +110,7 @@ void* single_thr_exe_interface(void* arg){
     // Cast the void pointer to its structure
     Thread_Args* state = static_cast<Thread_Args*>(arg);
     if (state->method == "mean")         rolling_mean_exec(*state->arr_in, *state->arr_out, state->w, state->start_index, state->end_index);
-    if (state->method == "correlation")  rolling_mean_corr_exec(*state->tuple_vect, *state->tuple_mean, *state->arr_out, state->w, state->start_index, state->end_index);
+    if (state->method == "correlation")  rolling_mean_corr_exec(*state->vect, *state->vect_mean, *state->arr_out, state->w, state->start_index, state->end_index);
 
     return nullptr; 
 }
@@ -150,41 +150,40 @@ void rolling_mean_parallel(vector<double> &arr_in, vector<double> &arr_out, size
     return;
 }
 
-void rolling_corr_parallel(const tuple<vector<double>, vector<double>> &tuple_vect, 
-                        tuple<vector<double>, vector<double>> &tuple_mean, 
-                        vector<double> &arr_out, size_t &w, int num_threads){
+void rolling_corr_parallel(const std::vector<vector<double>> &vect,
+                           vector<vector<double>> &vect_mean,
+                           vector<double> &arr_out,
+                           size_t &w, int num_threads) {
 
-    string method = "correlation";
-    auto& vect1 = std::get<0>(tuple_vect);
-    auto& vect2 = std::get<1>(tuple_vect);
-    int max_length = min(vect1.size(), vect2.size());
-    int chunk = max(1, int(max_length/num_threads));
+    if (vect.size() < 2)  throw std::runtime_error("rolling_corr_parallel: need at least 2 vectors");
+    if (num_threads <= 0) throw std::runtime_error("rolling_corr_parallel: num_threads must be > 0");
+
+    std::string method = "correlation";
+    auto& vect1 = vect[0];
+    auto& vect2 = vect[1];
+
+    int max_length = (int)std::min(vect1.size(), vect2.size());
+    int chunk = std::max(1, (max_length / num_threads));
+
     pthread_t th[num_threads];
+    Thread_Args args[num_threads];
 
-    // Creation of the sing thread function arguments
-    Thread_Args args[num_threads]; 
+    for (int jj = 0; jj < num_threads; jj++) {
+        args[jj].vect       = &vect;        // <--- changed
+        args[jj].vect_mean  = &vect_mean;
+        args[jj].arr_out    = &arr_out;
+        args[jj].w          = w;
+        args[jj].method     = method;
 
-    // Each thread has its own arguments
-    for(int jj=0; jj<num_threads;jj++){
-        args[jj].tuple_vect  = &tuple_vect;
-        args[jj].tuple_mean = &tuple_mean;
-        args[jj].arr_out = &arr_out;
-        args[jj].w       = w;
-        args[jj].method       = method;
-        
-        // Range division
         args[jj].start_index = jj * chunk;
-        args[jj].end_index   = (jj == num_threads - 1) ? max_length : (jj + 1) * chunk+w;        
+        args[jj].end_index   = (jj == num_threads - 1) ? max_length : (jj + 1) * chunk + (int)w;
 
         pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
     }
 
-    // wait for threads to finish
     for (int jj = 0; jj < num_threads; jj++) {
         pthread_join(th[jj], NULL);
     }
-
-    return;
 }
 
 
