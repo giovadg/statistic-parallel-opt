@@ -3,6 +3,9 @@ Fast C++ library for large-scale time-series feature extraction (rolling statist
 
 > **Status:** Ongoing project. Core execution engine and first numerical kernels are implemented; additional kernels and features are actively being developed.
 
+## Requirements
+This project requires the boost library for random number generation
+
 
 ## Overview
 
