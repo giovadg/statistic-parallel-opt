@@ -18,6 +18,7 @@ void read_file(string path, vector<vector<double>>& x_tot,
                 vector<vector<double>>& roll_corr_ser, vector<vector<double>>& roll_corr_pll ){
     int ii(0), n_line;
     ifstream file(path);
+
     if (!file.is_open()) {
         throw std::runtime_error("cannot open file.");
     } else {
@@ -50,6 +51,7 @@ void read_file(string path, vector<vector<double>>& x_tot,
             }
             if (ii != ncols) throw std::runtime_error("inconsistent number of columns");
         }
+
     }
 
     size_t ncols = x_tot.size();

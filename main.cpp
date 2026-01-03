@@ -32,10 +32,8 @@ int main(int argc, char** argv) {
   string path      = ((args.find("path") != args.end())) ? string(args["path"]) : "none";
   size_t n         = ((args.find("n") != args.end())) ? stoull(args["n"]) : 5000;
   int num_threads  = ((args.find("num_threads") != args.end())) ? stoull(args["num_threads"]) : 1;
-  size_t w         = ((args.find("w") != args.end())) ? stoull(args["w"]) : n/10;
   int Ntest_speed  = ((args.find("Ntest_speed") != args.end())) ? stoull(args["Ntest_speed"]) : 1;
 
-  cout <<"variables are: "<<num_threads<<" "<<n << " "<<w<<" "<<Ntest_speed<<" "<<path<<endl;
 
   vector<vector<double>> x_tot;
   vector<vector<double>> roll_av_ser, roll_av_pll;
@@ -44,10 +42,13 @@ int main(int argc, char** argv) {
   generation::interface_vectors_generation(path, n, x_tot, roll_av_ser, roll_av_pll,
                                            roll_corr_ser, roll_corr_pll);
 
+  size_t dim_vectors = x_tot[0].size(); 
+  size_t w         = ((args.find("w") != args.end())) ? stoull(args["w"]) : dim_vectors/10;
+
+  cout <<"variables are: "<<num_threads<<" "<<dim_vectors << " "<<w<<" "<<Ntest_speed<<" "<<path<<endl;
 
   string method;
   unordered_map<string,double> timings;
-  
   
   for (int j = 0; j < Ntest_speed; j++){
 
@@ -108,7 +109,7 @@ int main(int argc, char** argv) {
 
   // quick sanity check
   vector<double> max_abs(5);
-  for (size_t i = 0; i < n; ++i) {
+  for (size_t i = 0; i < dim_vectors; ++i) {
     if (isnan(roll_av_ser[0][i]) && isnan(roll_av_pll[0][i])) continue;
     max_abs[0] = max(max_abs[0], abs(roll_av_ser[0][i] - roll_av_pll[0][i]));
     if (isnan(roll_av_ser[1][i]) && isnan(roll_av_pll[1][i])) continue;
@@ -118,10 +119,12 @@ int main(int argc, char** argv) {
     max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][i] - roll_corr_pll[0][i]));
 
   }
-  cout <<"comparison between serial and single layer parallelism: \nmax_abs_diff_1: " << max_abs[0] <<  "\nmax_abs_diff_2: " << max_abs[1] <<"\n";
-  cout << "comparison between serial and nested parallelism: \nmax_abs_diff_1: " << max_abs[2] <<  "\nmax_abs_diff_2: " << max_abs[3] <<"\n";
-  cout << "Max correlation difference between serial and parallel: " << max_abs[4] <<"\n";
-  cout <<"max correlation is: " << *max_element(roll_corr_ser[0].begin(), roll_corr_ser[0].end());
-  
+
+  if (*max_element(max_abs.begin(),max_abs.end()) > 1e-10){
+    cout <<"comparison between serial and single layer parallelism: \nmax_abs_diff_1: "<< max_abs[0] <<  "\nmax_abs_diff_2: " << max_abs[1] <<"\n";
+    cout << "comparison between serial and nested parallelism: \nmax_abs_diff_1: " << max_abs[2] <<  "\nmax_abs_diff_2: " << max_abs[3] <<"\n";
+    cout << "Max correlation difference between serial and parallel: " << max_abs[4] <<"\n";
+    cout <<"max correlation is: " << *max_element(roll_corr_ser[0].begin(), roll_corr_ser[0].end());
+  }
   return 0;
 }
