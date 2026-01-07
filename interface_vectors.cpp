@@ -11,35 +11,35 @@
 
 using namespace std; 
 
-namespace generation{
+namespace in_out{
 
 void read_file(string path, vector<vector<double>>& x_tot,
-                vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
-                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
+               vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+               vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
     int ii(0), n_line;
     ifstream file(path);
 
     if (!file.is_open()) {
         throw std::runtime_error("cannot open file.");
-    } else {
-        std::string line, cell;
+} else {
+    std::string line, cell;
 
-        // leggi prima riga
-        if (!std::getline(file, line)) throw std::runtime_error("empty file");
+// leggi prima riga
+    if (!std::getline(file, line)) throw std::runtime_error("empty file");
 
-        // conta colonne
-        size_t ncols = 0;
+    // conta colonne
+    size_t ncols = 0;
+    {
+        std::stringstream ss(line);
+        while (std::getline(ss, cell, ';')) ++ncols;
+    }
+    x_tot.resize(ncols);
+
         {
-            std::stringstream ss(line);
-            while (std::getline(ss, cell, ';')) ++ncols;
-        }
-        x_tot.resize(ncols);
-
-        {
-            std::stringstream ss(line);
-            size_t ii = 0;
-            while (std::getline(ss, cell, ';')) {
-                x_tot[ii++].push_back(std::stod(cell));
+        std::stringstream ss(line);
+        size_t ii = 0;
+        while (std::getline(ss, cell, ';')) {
+            x_tot[ii++].push_back(std::stod(cell));
             }
         }
 
@@ -49,14 +49,14 @@ void read_file(string path, vector<vector<double>>& x_tot,
             while (std::getline(ss, cell, ';')) {
                 x_tot[ii++].push_back(std::stod(cell));
             }
-            if (ii != ncols) throw std::runtime_error("inconsistent number of columns");
+        if (ii != ncols) throw std::runtime_error("inconsistent number of columns");
         }
 
     }
 
     size_t ncols = x_tot.size();
     size_t nrows = x_tot[0].size();
-
+    
     roll_av_ser.resize(ncols, vector<double>(nrows));
     roll_av_pll.resize(ncols, vector<double>(nrows));
     roll_corr_ser.resize(ncols, vector<vector<double>>(ncols, vector<double>(nrows)));
@@ -121,5 +121,27 @@ void interface_vectors_generation(string path,int n_vect, int n, vector<vector<d
     }
     return;
 }
+
+
+void save_correlation(const vector<vector<vector<double>>>& corr,
+                 const string& fname)
+{
+    int  n_vect = corr.size();
+    size_t n_el = corr[0][0].size();
+
+    std::ofstream out(fname, std::ios::binary);
+
+    out.write(reinterpret_cast<char*>(&n_vect), sizeof(int));
+    out.write(reinterpret_cast<char*>(&n_vect), sizeof(int));
+    out.write(reinterpret_cast<char*>(&n_el), sizeof(size_t));
+
+    for (int ii = 0; ii < n_vect; ii++){
+        for (int jj = 0; jj < n_vect; jj++){
+            out.write(reinterpret_cast<const char*>(corr[ii][jj].data()),
+                    n_el * sizeof(double));
+        }
+    }
+}
+
 
 };

@@ -8,8 +8,12 @@
 #include <unistd.h>
 #include <fstream>
 
-namespace generation{
+namespace in_out{
 void interface_vectors_generation(string path,int n_vect, int n, vector<vector<double>>& x_tot,
                                     vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
                                     vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll );
+
+void save_correlation(const vector<vector<vector<double>>>& corr,
+                 const string& fname);
+
 }

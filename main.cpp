@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
   vector<vector<double>> roll_av_ser, roll_av_pll;
   vector<vector<vector<double>>> roll_corr_ser, roll_corr_pll; 
 
-  generation::interface_vectors_generation(path, n_vect, n, x_tot, roll_av_ser, roll_av_pll,
+  in_out::interface_vectors_generation(path, n_vect, n, x_tot, roll_av_ser, roll_av_pll,
                                            roll_corr_ser, roll_corr_pll);
 
   if (x_tot.empty()) {
@@ -54,6 +54,9 @@ int main(int argc, char** argv) {
 
   string method;
   unordered_map<string,double> timings;
+
+
+
   
   for (int j = 0; j < Ntest_speed; j++){
 
@@ -129,5 +132,10 @@ int main(int argc, char** argv) {
     cout << "Max correlation difference between serial and parallel: " << max_abs[4] <<"\n";
     cout <<"max correlation is: " << *max_element(roll_corr_ser[0][0].begin(), roll_corr_ser[0][0].end());
   }
+
+  in_out::save_correlation(roll_corr_pll, "correlation.bin");
+  
+
+
   return 0;
 }
