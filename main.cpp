@@ -42,6 +42,10 @@ int main(int argc, char** argv) {
   generation::interface_vectors_generation(path, n, x_tot, roll_av_ser, roll_av_pll,
                                            roll_corr_ser, roll_corr_pll);
 
+  if (x_tot.empty()) {
+    std::cerr << "Error: void vectors \n";
+    return 1;
+  }
   size_t dim_vectors = x_tot[0].size(); 
   size_t w         = ((args.find("w") != args.end())) ? stoull(args["w"]) : dim_vectors/10;
 
@@ -57,9 +61,7 @@ int main(int argc, char** argv) {
     kernels::rolling_mean_exec(x_tot[0], roll_av_ser[0], w);
     kernels::rolling_mean_exec(x_tot[1], roll_av_ser[1], w);
     // computes both mean and correlation
-    kernels::rolling_mean_corr_exec(x_tot, roll_av_ser, roll_corr_ser[0][0], w);
-    // kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_corr_ser, w);
-    
+    kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_corr_ser, w);
 
 
     auto end  = chrono::high_resolution_clock::now();
@@ -117,9 +119,10 @@ int main(int argc, char** argv) {
     max_abs[1] = max(max_abs[1], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
     max_abs[2] = max(max_abs[2], abs(roll_av_ser[0][i] - roll_av_pll[0][i]));
     max_abs[3] = max(max_abs[3], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
-    max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][0][i] - roll_corr_pll[0][0][i]));
-
+    max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][1][i] - roll_corr_pll[0][0][i]));
   }
+
+
 
   if (*max_element(max_abs.begin(),max_abs.end()) > 1e-10){
     cout <<"comparison between serial and single layer parallelism: \nmax_abs_diff_1: "<< max_abs[0] <<  "\nmax_abs_diff_2: " << max_abs[1] <<"\n";

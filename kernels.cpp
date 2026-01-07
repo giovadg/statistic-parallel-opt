@@ -17,63 +17,46 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
                         vector<vector<double>> &vect_mean, 
                         vector<vector<vector<double>>> &arr_out, size_t &w, int start_index, int end_index){
 
-    auto& vect1 = vect[0];
-    auto& vect2 = vect[1];
-    auto& vect1_mean = vect_mean[0];
-    auto& vect2_mean = vect_mean[1];
+    int N_vect  = vect.size();
+    int n_ele   = vect[0].size();
+    for (int j=0; j<N_vect; ++j) vect_mean[j][start_index] = 0.0;
 
-    if (end_index == -1) end_index = min(vect1.size(), vect2.size());
-    
-    double std1 = 0.0;
-    double std2 = 0.0;
+    if (end_index == -1){
+        end_index = (int)vect[0].size();
+        for (int ii=1;ii<vect.size();ii++){end_index = min((int)vect[ii].size(), end_index);};
+    }
+        
     double denom, dummy_mean;
-    // 1. compute the first corr
-    double Sv1v1(0.0), Sv2v2(0.0), Sv1v2(0.0);
-    vector<vector<double>> Svv, cov_vv;
-    vector<double> mean_vv;
-    vector<double> std_vv;
 
-    double mean_v1(0.0), mean_v2(0.0);
+    vector<vector<double>> Svv(N_vect, vector<double>(N_vect)), cov_vv(N_vect, vector<double>(N_vect));  
+
     for (int ii = start_index; ii < start_index+w; ii++){
         for (int jj=0; jj<Svv.size();jj++){
             for(int kk=jj; kk<Svv.size();kk++){
                 Svv[jj][kk] += vect[jj][ii] * vect[kk][ii];
             }
-            mean_vv[jj] += vect[jj][ii];
-            // Sv1v1 += vect1[ii]* vect1[ii];
-            // Sv1v2 += vect1[ii]* vect2[ii];
-            // Sv2v2 += vect2[ii]* vect2[ii];
-            // mean_v1 += vect1[ii];
-            // mean_v2 += vect2[ii];
-
+           vect_mean[jj][start_index] += vect[jj][ii]/w;
         }
     }
     for (int jj=0; jj<Svv.size();jj++){ 
-        vect_mean[jj][start_index] = mean_vv[jj]/w;
         for(int kk=jj; kk<Svv.size();kk++){
-            cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][start_index] * mean_vv[kk]/w;
+            cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][start_index] *vect_mean[kk][start_index];
         }
     }
-    // vect1_mean[start_index] = mean_v1/w;
-    // vect2_mean[start_index] = mean_v2/w;
 
-    // std1    = Sv1v1/w - vect1_mean[start_index] * vect1_mean[start_index];
-    // std2    = Sv2v2/w - vect2_mean[start_index] * vect2_mean[start_index];
-    // corr_NN = Sv1v2/w - vect1_mean[start_index] * vect2_mean[start_index];
     for (int jj=0; jj<Svv.size();jj++){ 
+        arr_out[jj][jj][start_index] = 1;
         for(int kk=jj+1; kk<Svv.size();kk++){
             denom = std::sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
             arr_out[jj][kk][start_index] = (denom > 0) ? cov_vv[jj][kk]/denom : 0.0;
+            arr_out[kk][jj][start_index] = arr_out[jj][kk][start_index];
         }
     }
-    // denom = std::sqrt(std1*std2);
-    // arr_out[start_index] = (denom > 0) ? corr_NN/denom : 0.0;
 
     // DP part for the rolling window
     for (int ii = start_index+1; ii < end_index-w; ii++){
 
         for (int jj=0; jj<Svv.size();jj++){
-            vect_mean[jj][ii] = (w*vect_mean[jj][ii-1] - vect[jj][ii-1] + vect[jj][ii+w-1])/w ;
             for(int kk=jj; kk<Svv.size();kk++){
                 Svv[jj][kk] += vect[jj][ii+w-1] * vect[kk][ii+w-1] - vect[jj][ii-1] * vect[kk][ii-1];
                 dummy_mean   = (w*vect_mean[kk][ii-1] - vect[kk][ii-1] + vect[kk][ii+w-1])/w;
