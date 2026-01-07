@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
     kernels::rolling_mean_parallel(x_tot[0], roll_av_pll[0], w, num_threads);
     kernels::rolling_mean_parallel(x_tot[1], roll_av_pll[1], w, num_threads);
 
-    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll[0][0], w, num_threads);
+    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll, w, num_threads);
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     method = "serial vectors input - parallel vector treatment";
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
     start = chrono::high_resolution_clock::now();
     kernels::rolling_mean_parallel_inputs(x_tot, roll_av_pll, w, num_threads, nested_threads);
 
-    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll[0][0], w, num_threads);
+    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll, w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
     max_abs[1] = max(max_abs[1], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
     max_abs[2] = max(max_abs[2], abs(roll_av_ser[0][i] - roll_av_pll[0][i]));
     max_abs[3] = max(max_abs[3], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
-    max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][1][i] - roll_corr_pll[0][0][i]));
+    max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][1][i] - roll_corr_pll[0][1][i]));
   }
 
 

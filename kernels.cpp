@@ -159,9 +159,10 @@ void rolling_mean_exec(const vector<double> &arr_in, vector<double> &arr_out,
 // define the structure of each thread input
 struct Thread_Args {
     const vector<double>* arr_in;
-    vector<double>* arr_out;
+    vector<vector<vector<double>>>* arr_out;
     const vector<vector<double>>* vect;
     vector<vector<double>>* vect_mean;
+    vector<double>* arr_out_mean;
     size_t w;
     int start_index;
     int end_index;
@@ -176,8 +177,8 @@ void* single_thr_exe_interface(void* arg){
 
     // Cast the void pointer to its structure
     Thread_Args* state = static_cast<Thread_Args*>(arg);
-    if (state->method == "mean")         rolling_mean_exec(*state->arr_in, *state->arr_out, state->w, state->start_index, state->end_index);
-    if (state->method == "correlation")  rolling_mean_corr_exec(*state->vect, *state->vect_mean, *state->arr_out, state->w, state->start_index, state->end_index);
+    if (state->method == "mean")         rolling_mean_exec(*state->arr_in, *state->arr_out_mean, state->w, state->start_index, state->end_index);
+    if (state->method == "correlation")  rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->arr_out, state->w, state->start_index, state->end_index);
 
     return nullptr; 
 }
@@ -198,7 +199,8 @@ void rolling_mean_parallel(vector<double> &arr_in, vector<double> &arr_out, size
     // Each thread has its own arguments
     for(int jj=0; jj<num_threads;jj++){
         args[jj].arr_in  = &arr_in;
-        args[jj].arr_out = &arr_out;
+        // args[jj].arr_out = &arr_out;
+        args[jj].arr_out_mean = &arr_out;
         args[jj].w       = w;
         args[jj].method  = method;
 
@@ -219,7 +221,7 @@ void rolling_mean_parallel(vector<double> &arr_in, vector<double> &arr_out, size
 
 void rolling_corr_parallel(const std::vector<vector<double>> &vect,
                            vector<vector<double>> &vect_mean,
-                           vector<double> &arr_out,
+                           vector<vector<vector<double>>> &arr_out,
                            size_t &w, int num_threads) {
 
     if (vect.size() < 2)  throw std::runtime_error("rolling_corr_parallel: need at least 2 vectors");
@@ -301,7 +303,7 @@ void* rolling_mean_exe_interface(void* arg_inp){
 
     Thread_Args* state = static_cast<Thread_Args*>(arg_inp);
 
-    rolling_mean_exec(*state->arr_in, *state->arr_out, state->w);
+    rolling_mean_exec(*state->arr_in, *state->arr_out_mean, state->w);
     
     return nullptr;
 }
@@ -319,7 +321,7 @@ void rolling_mean_parallel_inputs(vector<vector<double>> &arrs_in, vector<vector
     // for(int jj=0; jj<arrs_in.size();jj++){
     for(int jj=0; jj<arrs_in.size();jj++){
         args[jj].arr_in  = &arrs_in[jj];
-        args[jj].arr_out = &arrs_out[jj];
+        args[jj].arr_out_mean = &arrs_out[jj];
         args[jj].w       = w;
         args[jj].num_threads = std::max(1,int(num_threads/arrs_in.size()));
         
