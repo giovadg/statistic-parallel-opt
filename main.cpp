@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
 
   string path      = ((args.find("path") != args.end())) ? string(args["path"]) : "none";
   size_t n         = ((args.find("n") != args.end())) ? stoull(args["n"]) : 5000;
+  int    n_vect    = ((args.find("n_vect") != args.end())) ? stoull(args["n_vect"]) : 2;
   int num_threads  = ((args.find("num_threads") != args.end())) ? stoull(args["num_threads"]) : 1;
   int Ntest_speed  = ((args.find("Ntest_speed") != args.end())) ? stoull(args["Ntest_speed"]) : 1;
 
@@ -39,7 +40,7 @@ int main(int argc, char** argv) {
   vector<vector<double>> roll_av_ser, roll_av_pll;
   vector<vector<vector<double>>> roll_corr_ser, roll_corr_pll; 
 
-  generation::interface_vectors_generation(path, n, x_tot, roll_av_ser, roll_av_pll,
+  generation::interface_vectors_generation(path, n_vect, n, x_tot, roll_av_ser, roll_av_pll,
                                            roll_corr_ser, roll_corr_pll);
 
   if (x_tot.empty()) {
@@ -121,8 +122,6 @@ int main(int argc, char** argv) {
     max_abs[3] = max(max_abs[3], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
     max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][1][i] - roll_corr_pll[0][1][i]));
   }
-
-
 
   if (*max_element(max_abs.begin(),max_abs.end()) > 1e-10){
     cout <<"comparison between serial and single layer parallelism: \nmax_abs_diff_1: "<< max_abs[0] <<  "\nmax_abs_diff_2: " << max_abs[1] <<"\n";

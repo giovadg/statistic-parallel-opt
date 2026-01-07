@@ -65,42 +65,44 @@ void read_file(string path, vector<vector<double>>& x_tot,
     return;
 }
 
-void generate_vectors(int n,vector<vector<double>>& x_tot,
+void generate_vectors(int n_vect, int n, vector<vector<double>>& x_tot,
                 vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
                 vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
-    x_tot.resize(2, vector<double>(n));
-    roll_av_ser.resize(2, vector<double>(n));
-    roll_av_pll.resize(2, vector<double>(n));
+    x_tot.resize(n_vect, vector<double>(n));
+    roll_av_ser.resize(n_vect, vector<double>(n));
+    roll_av_pll.resize(n_vect, vector<double>(n));
 
-    roll_corr_ser.resize(2,vector<vector<double>>(2, vector<double>(n)));
-    roll_corr_pll.resize(2,vector<vector<double>>(2, vector<double>(n)));
+    roll_corr_ser.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n)));
+    roll_corr_pll.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n)));
 
-    // Random number generators: 2 Gaussians, with different mean and std. Different seeds.
-    boost::mt19937 rng1(123);
-    boost::mt19937 rng2(100);
-    boost::normal_distribution<> initial_distribution1(0,1);
-    boost::normal_distribution<> initial_distribution2(1,2);
-
-    boost::variate_generator<boost::mt19937&, boost::normal_distribution<>> 
-    initial_velocities_generator1(rng1,initial_distribution1);
-
-    boost::variate_generator<boost::mt19937&, boost::normal_distribution<>> 
-    initial_velocities_generator2(rng2,initial_distribution2);
-
-    for (size_t i = 0; i < n; i++){
-    x_tot[0][i] = initial_velocities_generator1();
-    x_tot[1][i] = initial_velocities_generator2();
+    // mean/std for each vector (example)
+    vector<double> mu(n_vect), sigma(n_vect);
+    for (int nv=0; nv<n_vect; nv++){
+        mu[nv]    = 0.0 + nv;
+        sigma[nv] = 1.0 + nv;
     }
 
+    // different seed for each vector but deterministic-reproducible
+    vector<boost::mt19937> rng(n_vect);
+    for (int nv=0; nv<n_vect; nv++){
+        rng[nv].seed(100 + nv);
+    }
 
+    for (int nv=0; nv<n_vect; nv++){
+        boost::normal_distribution<> dist(mu[nv], sigma[nv]);
+        boost::variate_generator<boost::mt19937&, boost::normal_distribution<> > gen(rng[nv], dist);
 
+        for (size_t i=0; i<n; i++){
+            x_tot[nv][i] = gen();
+        }
+    }
 
     return;
 }
 
 
-void interface_vectors_generation(string path,int n, vector<vector<double>>& x_tot,
+void interface_vectors_generation(string path,int n_vect, int n, vector<vector<double>>& x_tot,
                                     vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
                                     vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
@@ -111,7 +113,7 @@ void interface_vectors_generation(string path,int n, vector<vector<double>>& x_t
                      roll_corr_ser, roll_corr_pll);
     }else{
         cout << " generating vectors\n";
-        generate_vectors(n, x_tot,
+        generate_vectors(n_vect, n, x_tot,
                        roll_av_ser,  roll_av_pll,
                         roll_corr_ser, roll_corr_pll);
 

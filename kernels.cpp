@@ -79,7 +79,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
 }
 
 
-
+// not used anymore -> will be soon removed
 void rolling_mean_corr_exec(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 
                         vector<double> &arr_out, size_t &w, int start_index, int end_index){
@@ -227,12 +227,13 @@ void rolling_corr_parallel(const std::vector<vector<double>> &vect,
     if (vect.size() < 2)  throw std::runtime_error("rolling_corr_parallel: need at least 2 vectors");
     if (num_threads <= 0) throw std::runtime_error("rolling_corr_parallel: num_threads must be > 0");
 
-    std::string method = "correlation";
-    auto& vect1 = vect[0];
-    auto& vect2 = vect[1];
+    string method = "correlation";
 
-    int max_length = (int)std::min(vect1.size(), vect2.size());
-    int chunk = std::max(1, (max_length / num_threads));
+    int max_length = (int)vect[0].size();
+    for (int ii=1;ii<vect.size();ii++){max_length = min(max_length, (int)vect[ii].size());}
+
+    
+    int chunk = max(1, (max_length / num_threads));
 
     pthread_t th[num_threads];
     Thread_Args args[num_threads];
