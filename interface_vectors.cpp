@@ -15,7 +15,7 @@ namespace generation{
 
 void read_file(string path, vector<vector<double>>& x_tot,
                 vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
-                vector<vector<double>>& roll_corr_ser, vector<vector<double>>& roll_corr_pll ){
+                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
     int ii(0), n_line;
     ifstream file(path);
 
@@ -57,23 +57,24 @@ void read_file(string path, vector<vector<double>>& x_tot,
     size_t ncols = x_tot.size();
     size_t nrows = x_tot[0].size();
 
-    roll_av_ser.resize(ncols, std::vector<double>(nrows));
-    roll_av_pll.resize(ncols, std::vector<double>(nrows));
-    roll_corr_ser.resize(ncols, std::vector<double>(nrows));
-    roll_corr_pll.resize(ncols, std::vector<double>(nrows));
+    roll_av_ser.resize(ncols, vector<double>(nrows));
+    roll_av_pll.resize(ncols, vector<double>(nrows));
+    roll_corr_ser.resize(ncols, vector<vector<double>>(ncols, vector<double>(nrows)));
+    roll_corr_pll.resize(ncols, vector<vector<double>>(ncols, vector<double>(nrows)));
 
     return;
 }
 
 void generate_vectors(int n,vector<vector<double>>& x_tot,
                 vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
-                vector<vector<double>>& roll_corr_ser, vector<vector<double>>& roll_corr_pll ){
+                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
-    x_tot.resize(2, std::vector<double>(n));
-    roll_av_ser.resize(2, std::vector<double>(n));
-    roll_av_pll.resize(2, std::vector<double>(n));
-    roll_corr_ser.resize(2, std::vector<double>(n));
-    roll_corr_pll.resize(2, std::vector<double>(n));
+    x_tot.resize(2, vector<double>(n));
+    roll_av_ser.resize(2, vector<double>(n));
+    roll_av_pll.resize(2, vector<double>(n));
+
+    roll_corr_ser.resize(2,vector<vector<double>>(2, vector<double>(n)));
+    roll_corr_pll.resize(2,vector<vector<double>>(2, vector<double>(n)));
 
     // Random number generators: 2 Gaussians, with different mean and std. Different seeds.
     boost::mt19937 rng1(123);
@@ -101,7 +102,7 @@ void generate_vectors(int n,vector<vector<double>>& x_tot,
 
 void interface_vectors_generation(string path,int n, vector<vector<double>>& x_tot,
                                     vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
-                                    vector<vector<double>>& roll_corr_ser, vector<vector<double>>& roll_corr_pll ){
+                                    vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
     if (path != "none"){
         cout << " reading from file\n";

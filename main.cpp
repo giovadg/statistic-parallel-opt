@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 
   vector<vector<double>> x_tot;
   vector<vector<double>> roll_av_ser, roll_av_pll;
-  vector<vector<double>> roll_corr_ser, roll_corr_pll; 
+  vector<vector<vector<double>>> roll_corr_ser, roll_corr_pll; 
 
   generation::interface_vectors_generation(path, n, x_tot, roll_av_ser, roll_av_pll,
                                            roll_corr_ser, roll_corr_pll);
@@ -56,10 +56,11 @@ int main(int argc, char** argv) {
 
     kernels::rolling_mean_exec(x_tot[0], roll_av_ser[0], w);
     kernels::rolling_mean_exec(x_tot[1], roll_av_ser[1], w);
-
-
     // computes both mean and correlation
-    kernels::rolling_mean_corr_exec(x_tot, roll_av_ser, roll_corr_ser[0], w);
+    kernels::rolling_mean_corr_exec(x_tot, roll_av_ser, roll_corr_ser[0][0], w);
+    // kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_corr_ser, w);
+    
+
 
     auto end  = chrono::high_resolution_clock::now();
     auto diff = chrono::duration<double>(end-start).count();
@@ -72,7 +73,7 @@ int main(int argc, char** argv) {
     kernels::rolling_mean_parallel(x_tot[0], roll_av_pll[0], w, num_threads);
     kernels::rolling_mean_parallel(x_tot[1], roll_av_pll[1], w, num_threads);
 
-    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll[0], w, num_threads);
+    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll[0][0], w, num_threads);
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     method = "serial vectors input - parallel vector treatment";
@@ -85,7 +86,7 @@ int main(int argc, char** argv) {
     start = chrono::high_resolution_clock::now();
     kernels::rolling_mean_parallel_inputs(x_tot, roll_av_pll, w, num_threads, nested_threads);
 
-    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll[0], w, num_threads);
+    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll[0][0], w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -116,7 +117,7 @@ int main(int argc, char** argv) {
     max_abs[1] = max(max_abs[1], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
     max_abs[2] = max(max_abs[2], abs(roll_av_ser[0][i] - roll_av_pll[0][i]));
     max_abs[3] = max(max_abs[3], abs(roll_av_ser[1][i] - roll_av_pll[1][i]));
-    max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][i] - roll_corr_pll[0][i]));
+    max_abs[4] = max(max_abs[4], abs(roll_corr_ser[0][0][i] - roll_corr_pll[0][0][i]));
 
   }
 
@@ -124,7 +125,7 @@ int main(int argc, char** argv) {
     cout <<"comparison between serial and single layer parallelism: \nmax_abs_diff_1: "<< max_abs[0] <<  "\nmax_abs_diff_2: " << max_abs[1] <<"\n";
     cout << "comparison between serial and nested parallelism: \nmax_abs_diff_1: " << max_abs[2] <<  "\nmax_abs_diff_2: " << max_abs[3] <<"\n";
     cout << "Max correlation difference between serial and parallel: " << max_abs[4] <<"\n";
-    cout <<"max correlation is: " << *max_element(roll_corr_ser[0].begin(), roll_corr_ser[0].end());
+    cout <<"max correlation is: " << *max_element(roll_corr_ser[0][0].begin(), roll_corr_ser[0][0].end());
   }
   return 0;
 }

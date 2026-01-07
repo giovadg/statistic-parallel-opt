@@ -22,6 +22,10 @@ void rolling_mean_corr_exec(const vector<vector<double>> &tuple_vect,
                         vector<vector<double>> &tuple_mean, 
                         vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
 
+
+void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect, 
+                        vector<vector<double>> &vect_mean, 
+                        vector<vector<vector<double>>> &arr_out, size_t &w, int start_index, int end_index);
 // void rolling_corr_exec(const tuple<vector<double>, vector<double>> &tuple_vect, 
 //                         const tuple<vector<double>, vector<double>> &tuple_mean, 
 //                         vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
