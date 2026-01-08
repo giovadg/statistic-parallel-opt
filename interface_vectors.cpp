@@ -8,12 +8,54 @@
 #include <chrono>
 #include <unistd.h>
 #include <cstdlib>
+#include <cstdint>
 
 using namespace std; 
 
 namespace in_out{
 
-void read_file(string path, vector<vector<double>>& x_tot,
+
+
+
+
+    
+
+void read_bin(string path, vector<vector<double>>& x_tot,
+               vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+               vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll)   // contiguo: X[i*ncols + j]
+{
+    vector<double> X;
+    uint64_t r, c;
+
+    ifstream input(path, ios::binary);
+    if (!input.is_open()) throw runtime_error("cannot open file");
+
+    input.read(reinterpret_cast<char*>(&r), sizeof(uint64_t));
+    input.read(reinterpret_cast<char*>(&c), sizeof(uint64_t));
+    if (!input.good()) throw runtime_error("bad header");
+
+    size_t n_ele = (size_t)r; size_t n_vect = (size_t)c;
+
+    X.resize(n_ele * n_vect);
+    x_tot.resize(n_vect, vector<double>(n_ele));
+    roll_av_ser.resize(n_vect, vector<double>(n_ele));
+    roll_av_pll.resize(n_vect, vector<double>(n_ele));
+    roll_corr_ser.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n_ele)));
+    roll_corr_pll.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n_ele)));
+
+
+    input.read(reinterpret_cast<char*>(X.data()), X.size() * sizeof(double));
+    if (!input.good()) throw runtime_error("bad data");
+
+    for (size_t i=0;i<n_ele;++i){
+        for (size_t j=0;j<n_vect;++j){
+            x_tot[j][i] = X[i*n_vect + j];
+        }
+    }
+}
+
+
+void read_csv(string path, vector<vector<double>>& x_tot,
                vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
     int ii(0), n_line;
@@ -102,22 +144,30 @@ void generate_vectors(int n_vect, int n, vector<vector<double>>& x_tot,
 }
 
 
+void read_file(string path, vector<vector<double>>& x_tot,
+               vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+               vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
+    
+    if (path.contains(".bin")) {
+        read_bin(path, x_tot, roll_av_ser, roll_av_pll, roll_corr_ser, roll_corr_pll);
+    }else if(path.contains(".csv")){
+        read_csv(path, x_tot, roll_av_ser, roll_av_pll, roll_corr_ser, roll_corr_pll);
+    }else{
+        throw runtime_error("not a good input file extension");
+    }
+    return ;
+    }
+
 void interface_vectors_generation(string path,int n_vect, int n, vector<vector<double>>& x_tot,
                                     vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
                                     vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
     if (path != "none"){
         cout << " reading from file\n";
-        read_file(path, x_tot,
-                 roll_av_ser,  roll_av_pll,
-                     roll_corr_ser, roll_corr_pll);
+        read_file(path, x_tot, roll_av_ser, roll_av_pll, roll_corr_ser, roll_corr_pll);
     }else{
         cout << " generating vectors\n";
-        generate_vectors(n_vect, n, x_tot,
-                       roll_av_ser,  roll_av_pll,
-                        roll_corr_ser, roll_corr_pll);
-
-
+        generate_vectors(n_vect, n, x_tot, roll_av_ser,  roll_av_pll, roll_corr_ser, roll_corr_pll);
     }
     return;
 }

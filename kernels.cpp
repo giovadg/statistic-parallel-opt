@@ -47,30 +47,40 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
     for (int jj=0; jj<Svv.size();jj++){ 
         arr_out[jj][jj][start_index] = 1;
         for(int kk=jj+1; kk<Svv.size();kk++){
-            denom = std::sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
+            denom = sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
             arr_out[jj][kk][start_index] = (denom > 0) ? cov_vv[jj][kk]/denom : 0.0;
             arr_out[kk][jj][start_index] = arr_out[jj][kk][start_index];
+            if (abs(arr_out[kk][jj][start_index])>1 ) {
+                printf("errore larger than 1.\n");
+                cout<< cov_vv[jj][kk]<< " "<< cov_vv[jj][jj] << " "<< cov_vv[kk][kk]<< " "<< jj<< 
+                        " "<< kk<<" "<<vect[jj][start_index]<< " "<<vect[kk][start_index]<<endl;
+            }
         }
     }
 
     // DP part for the rolling window
     for (int ii = start_index+1; ii < end_index-w; ii++){
-
         for (int jj=0; jj<Svv.size();jj++){
+            vect_mean[jj][ii] = (w*vect_mean[jj][ii-1] - vect[jj][ii-1] + vect[jj][ii+w-1])/w;
             for(int kk=jj; kk<Svv.size();kk++){
                 Svv[jj][kk] += vect[jj][ii+w-1] * vect[kk][ii+w-1] - vect[jj][ii-1] * vect[kk][ii-1];
                 dummy_mean   = (w*vect_mean[kk][ii-1] - vect[kk][ii-1] + vect[kk][ii+w-1])/w;
                 cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][ii] * dummy_mean;
             }
         }
+
         for (int jj=0; jj<Svv.size();jj++){ 
             arr_out[jj][jj][ii] = 1.0;
             for(int kk=jj+1; kk<Svv.size();kk++){
-                denom = std::sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
-                arr_out[jj][kk][ii] = (denom > 0) ? cov_vv[jj][kk]/denom : 0.0;
+                denom = sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
+                arr_out[jj][kk][ii] = (denom > 1e-11) ? cov_vv[jj][kk]/denom : 0.0;
                 arr_out[kk][jj][ii] = arr_out[jj][kk][ii];
                 
-                if (abs(arr_out[kk][jj][ii])>1 ) printf("error in the algorithm, correlation larger than 1.\n");
+                if (abs(arr_out[kk][jj][ii])>1 ) {
+                    printf("error in the algorithm, correlation larger than 1.\n");
+                    cout<< cov_vv[jj][kk]<< " "<< cov_vv[jj][jj] << " "<< cov_vv[kk][kk]<< " "<< jj<< 
+                            " "<< kk<<" "<<vect[jj][ii+w-1]<< " "<<vect[kk][ii+w-1]<<endl;
+                }
 
             }
         }
