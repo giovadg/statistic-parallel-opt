@@ -1,4 +1,4 @@
-# pthread-parallel-stats
+# statistic-parallel-opt
 Fast C++ library for large-scale time-series feature extraction (rolling statistics), with explicit pthread parallelism and benchmarking against serial baselines.
 
 > **Status:** Ongoing project. Core execution engine and first numerical kernels are implemented; additional kernels and features are actively being developed.
