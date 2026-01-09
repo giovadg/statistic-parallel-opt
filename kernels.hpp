@@ -6,11 +6,14 @@ using namespace std;
 
 namespace kernels {
 
-void rolling_mean_exec(const vector<double> &arr_in, vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
+void rolling_mean_exec(const vector<vector<double>> &arrs_in, vector<vector<double>> &arr_out, size_t &w, int start_index=0,
+                                 int end_index=-1, int vect_start=0, int vect_end=-1);
 
-void rolling_mean_parallel(vector<double> &arr_in, vector<double> &arr_out, size_t &w,  int num_threads);
+void rolling_var_exec(const vector<vector<double>> &arrs_in, vector<vector<double>> &arr_out, size_t &w, int start_index=0,
+                                 int end_index=-1, int vect_start=0, int vect_end=-1);
+void rolling_mean_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_out, size_t &w,  int num_threads);
 
-void rolling_mean_parallel_inputs(vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_out,
+void rolling_mean_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_out,
                                      size_t &w, int num_threads, bool nested_threads);
 
 

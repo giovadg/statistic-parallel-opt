@@ -38,10 +38,11 @@ int main(int argc, char** argv) {
 
   vector<vector<double>> x_tot;
   vector<vector<double>> roll_av_ser, roll_av_pll;
+  vector<vector<double>> roll_var_ser, roll_var_pll;
   vector<vector<vector<double>>> roll_corr_ser, roll_corr_pll; 
 
   in_out::interface_vectors_generation(path, n_vect, n, x_tot, roll_av_ser, roll_av_pll,
-                                           roll_corr_ser, roll_corr_pll);
+                                           roll_var_ser, roll_var_pll, roll_corr_ser, roll_corr_pll);
 
   if (x_tot.empty()) {
     std::cerr << "Error: void vectors \n";
@@ -62,9 +63,8 @@ int main(int argc, char** argv) {
 
     auto start = chrono::high_resolution_clock::now();
 
-    kernels::rolling_mean_exec(x_tot[0], roll_av_ser[0], w);
-    kernels::rolling_mean_exec(x_tot[1], roll_av_ser[1], w);
-    // computes both mean and correlation
+    kernels::rolling_mean_exec(x_tot, roll_av_ser, w);
+    kernels::rolling_var_exec(x_tot, roll_var_ser, w, num_threads);
     kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_corr_ser, w);
 
 
@@ -76,10 +76,10 @@ int main(int argc, char** argv) {
     // --------------------------
     // parallel approach: division of arrays in subarrays.
     start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_parallel(x_tot[0], roll_av_pll[0], w, num_threads);
-    kernels::rolling_mean_parallel(x_tot[1], roll_av_pll[1], w, num_threads);
-
+    kernels::rolling_mean_parallel(x_tot, roll_av_pll, w, num_threads);
     kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll, w, num_threads);
+
+
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     method = "serial vectors input - parallel vector treatment";
@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
     // if nested: each array divided also in subarray - not applicable for correlation -
     for (bool nested_threads : {false,true}){
     start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_parallel_inputs(x_tot, roll_av_pll, w, num_threads, nested_threads);
+    kernels::rolling_mean_parallel_nested(x_tot, roll_av_pll, w, num_threads, nested_threads);
 
     kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll, w, num_threads);
 

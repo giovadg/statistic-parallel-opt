@@ -22,6 +22,7 @@ namespace in_out{
 
 void read_bin(string path, vector<vector<double>>& x_tot,
                vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+               vector<vector<double>>& roll_var_ser, vector<vector<double>>& roll_var_pll,
                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll)   // contiguo: X[i*ncols + j]
 {
     vector<double> X;
@@ -40,6 +41,8 @@ void read_bin(string path, vector<vector<double>>& x_tot,
     x_tot.resize(n_vect, vector<double>(n_ele));
     roll_av_ser.resize(n_vect, vector<double>(n_ele));
     roll_av_pll.resize(n_vect, vector<double>(n_ele));
+    roll_var_ser.resize(n_vect, vector<double>(n_ele));
+    roll_var_pll.resize(n_vect, vector<double>(n_ele));
     roll_corr_ser.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n_ele)));
     roll_corr_pll.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n_ele)));
 
@@ -57,6 +60,7 @@ void read_bin(string path, vector<vector<double>>& x_tot,
 
 void read_csv(string path, vector<vector<double>>& x_tot,
                vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+               vector<vector<double>>& roll_var_ser, vector<vector<double>>& roll_var_pll,
                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
     int ii(0), n_line;
     ifstream file(path);
@@ -100,7 +104,9 @@ void read_csv(string path, vector<vector<double>>& x_tot,
     size_t nrows = x_tot[0].size();
     
     roll_av_ser.resize(ncols, vector<double>(nrows));
-    roll_av_pll.resize(ncols, vector<double>(nrows));
+    roll_av_pll.resize(ncols, vector<double>(nrows));    
+    roll_var_ser.resize(ncols, vector<double>(nrows));
+    roll_var_pll.resize(ncols, vector<double>(nrows));
     roll_corr_ser.resize(ncols, vector<vector<double>>(ncols, vector<double>(nrows)));
     roll_corr_pll.resize(ncols, vector<vector<double>>(ncols, vector<double>(nrows)));
 
@@ -109,12 +115,14 @@ void read_csv(string path, vector<vector<double>>& x_tot,
 
 void generate_vectors(int n_vect, int n, vector<vector<double>>& x_tot,
                 vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+                vector<vector<double>>& roll_var_ser, vector<vector<double>>& roll_var_pll,
                 vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
     x_tot.resize(n_vect, vector<double>(n));
     roll_av_ser.resize(n_vect, vector<double>(n));
     roll_av_pll.resize(n_vect, vector<double>(n));
-
+    roll_var_ser.resize(n_vect, vector<double>(n));
+    roll_var_pll.resize(n_vect, vector<double>(n));
     roll_corr_ser.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n)));
     roll_corr_pll.resize(n_vect, vector<vector<double>>(n_vect, vector<double>(n)));
 
@@ -146,12 +154,13 @@ void generate_vectors(int n_vect, int n, vector<vector<double>>& x_tot,
 
 void read_file(string path, vector<vector<double>>& x_tot,
                vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+               vector<vector<double>>& roll_var_ser, vector<vector<double>>& roll_var_pll,
                vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
     
     if (path.contains(".bin")) {
-        read_bin(path, x_tot, roll_av_ser, roll_av_pll, roll_corr_ser, roll_corr_pll);
+        read_bin(path, x_tot, roll_av_ser, roll_av_pll, roll_var_ser, roll_var_pll, roll_corr_ser, roll_corr_pll);
     }else if(path.contains(".csv")){
-        read_csv(path, x_tot, roll_av_ser, roll_av_pll, roll_corr_ser, roll_corr_pll);
+        read_csv(path, x_tot, roll_av_ser, roll_av_pll, roll_var_ser, roll_var_pll, roll_corr_ser, roll_corr_pll);
     }else{
         throw runtime_error("not a good input file extension");
     }
@@ -160,14 +169,15 @@ void read_file(string path, vector<vector<double>>& x_tot,
 
 void interface_vectors_generation(string path,int n_vect, int n, vector<vector<double>>& x_tot,
                                     vector<vector<double>>& roll_av_ser, vector<vector<double>>& roll_av_pll,
+                                    vector<vector<double>>& roll_var_ser, vector<vector<double>>& roll_var_pll,
                                     vector<vector<vector<double>>>& roll_corr_ser, vector<vector<vector<double>>>& roll_corr_pll ){
 
     if (path != "none"){
         cout << " reading from file\n";
-        read_file(path, x_tot, roll_av_ser, roll_av_pll, roll_corr_ser, roll_corr_pll);
+        read_file(path, x_tot, roll_av_ser, roll_av_pll, roll_var_ser, roll_var_pll, roll_corr_ser, roll_corr_pll);
     }else{
         cout << " generating vectors\n";
-        generate_vectors(n_vect, n, x_tot, roll_av_ser,  roll_av_pll, roll_corr_ser, roll_corr_pll);
+        generate_vectors(n_vect, n, x_tot, roll_av_ser, roll_var_ser, roll_var_pll, roll_av_pll, roll_corr_ser, roll_corr_pll);
     }
     return;
 }
