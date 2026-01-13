@@ -64,8 +64,8 @@ int main(int argc, char** argv) {
     auto start = chrono::high_resolution_clock::now();
 
     kernels::rolling_mean_exec(x_tot, roll_av_ser, w);
-    kernels::rolling_var_exec(x_tot, roll_var_ser, w, num_threads);
-    kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_corr_ser, w);
+    kernels::rolling_var_exec(x_tot, roll_var_ser, w);
+    kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_var_ser, roll_corr_ser, w);
 
 
     auto end  = chrono::high_resolution_clock::now();
@@ -76,9 +76,12 @@ int main(int argc, char** argv) {
     // --------------------------
     // parallel approach: division of arrays in subarrays.
     start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_parallel(x_tot, roll_av_pll, w, num_threads);
-    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll, w, num_threads);
 
+    kernels::rolling_stat_parallel(x_tot, roll_var_pll, "variance", w, num_threads);
+
+    kernels::rolling_stat_parallel(x_tot, roll_av_pll, "mean", w, num_threads);
+
+    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_var_pll, roll_corr_pll,  w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -90,9 +93,12 @@ int main(int argc, char** argv) {
     // if nested: each array divided also in subarray - not applicable for correlation -
     for (bool nested_threads : {false,true}){
     start = chrono::high_resolution_clock::now();
-    kernels::rolling_mean_parallel_nested(x_tot, roll_av_pll, w, num_threads, nested_threads);
 
-    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_corr_pll, w, num_threads);
+    kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, "mean", w, num_threads, nested_threads);
+
+    kernels::rolling_stat_parallel_nested(x_tot, roll_var_pll, "variance", w, num_threads, nested_threads);
+
+    kernels::rolling_corr_parallel(x_tot, roll_av_ser, roll_var_pll, roll_corr_pll, w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -133,8 +139,7 @@ int main(int argc, char** argv) {
     cout <<"max correlation is: " << *max_element(roll_corr_ser[0][0].begin(), roll_corr_ser[0][0].end());
   }
 
-  in_out::save_correlation(roll_corr_pll, "correlation.bin");
-  
+  in_out::save_correlation(roll_corr_pll, "correlation.bin");  
 
 
   return 0;
