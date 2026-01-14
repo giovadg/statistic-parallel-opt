@@ -71,9 +71,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
                 dummy_mean   = (w*vect_mean[kk][ii-1] - vect[kk][ii-1] + vect[kk][ii+w-1])/w;
                 cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][ii] * dummy_mean;
             }
-
             vect_var[jj][ii] = Svv[jj][jj] - vect_mean[jj][ii]*vect_mean[jj][ii];
-
         }
 
         for (int jj=0; jj<Svv.size();jj++){ 
@@ -98,26 +96,36 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
 
 
 
-void rolling_var_exec(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_out,
+void rolling_var_exec(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean, 
+                        vector<vector<double>> &arr_var,
                          size_t &w, int start_index, int end_index, int vect_start, int vect_end){
 
     if (end_index == -1) end_index = (int)arr_in[0].size();
     if (vect_end  == -1) vect_end  = (int)arr_in.size();
 
     auto lamb = [] (double aa) {return aa*aa;};
-    double sum_sq;
+    double sum_sq, sum;
     // 1. compute the first var
     for (int jj=vect_start; jj<vect_end;jj++){
         sum_sq = std::transform_reduce(arr_in[jj].begin() + start_index,arr_in[jj].begin() + start_index + w, 
                                                 0.0, std::plus<>(), lamb);
-        arr_out[jj][start_index] = sum_sq/w;
+
+        sum    = std::accumulate(arr_in[jj].begin()+start_index, arr_in[jj].begin()+start_index+w, 0.0);
+
+        arr_var[jj][start_index]    = sum_sq/w - (sum/w)*(sum/w);
+        arr_mean[jj][start_index]   = sum/w;
     }    
 
     // 3. Computes the other averages using DP
     //    Iterate from the starting index + 1 until the last available point   
     for (int jj=vect_start; jj<vect_end;jj++){
         for (int ii=start_index+1; ii<=end_index-w;ii++){
-            arr_out[jj][ii] = (w*arr_out[jj][ii-1] - lamb(arr_in[jj][ii-1]) + lamb(arr_in[jj][ii+w-1]) )/w;
+            sum_sq = sum_sq - lamb(arr_in[jj][ii-1]) + lamb(arr_in[jj][ii+w-1]);
+
+            arr_mean[jj][ii] = (w*arr_mean[jj][ii-1] - arr_in[jj][ii-1] + arr_in[jj][ii+w-1])/w;
+
+            arr_var[jj][ii]  = sum_sq/w - arr_mean[jj][ii]*arr_mean[jj][ii];
+
         }
     }
 
@@ -130,10 +138,10 @@ void rolling_mean_exec(const vector<vector<double>> &arr_in, vector<vector<doubl
 
     if (end_index == -1) end_index = (int)arr_in[0].size();
     if (vect_end  == -1) vect_end  = (int)arr_in.size();
-
+    double sum;
     // 1. compute the first average
     for (int jj=vect_start; jj<vect_end;jj++){
-        double sum = std::accumulate(arr_in[jj].begin()+start_index, arr_in[jj].begin()+start_index+w, 0.0);
+        sum = std::accumulate(arr_in[jj].begin()+start_index, arr_in[jj].begin()+start_index+w, 0.0);
         arr_out[jj][start_index] = sum/w;
     }
     // 3. Computes the other averages using DP
@@ -173,7 +181,7 @@ void* single_thr_exe_interface(void* arg){
     if (state->method == "mean")         rolling_mean_exec(*state->vect, *state->vect_mean, state->w, state->start_index, state->end_index,
                                                         state->vect_start, state->vect_end );
 
-    if (state->method == "variance")     rolling_var_exec(*state->vect, *state->vect_var, state->w, state->start_index, state->end_index,
+    if (state->method == "variance")     rolling_var_exec(*state->vect, *state->vect_mean, *state->vect_var, state->w, state->start_index, state->end_index,
                                                         state->vect_start, state->vect_end );
 
     if (state->method == "correlation")  rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->vect_var, *state->arr_out, state->w, state->start_index, state->end_index);
@@ -183,7 +191,8 @@ void* single_thr_exe_interface(void* arg){
 
 
 
-void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_out, string method, size_t &w, int num_threads){
+void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean,
+                         vector<vector<double>> &arr_var, string method, size_t &w, int num_threads){
 
     int chunk = (int)arr_in[0].size()/num_threads;
 
@@ -195,8 +204,8 @@ void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<d
     // Each thread has its own arguments
     for(int jj=0; jj<num_threads;jj++){
         args[jj].vect       = &arr_in;
-        args[jj].vect_mean  = &arr_out;
-        args[jj].vect_var   = &arr_out;
+        args[jj].vect_mean  = &arr_mean;
+        args[jj].vect_var   = &arr_var;
         args[jj].w       = w;
         args[jj].method  = method;
         // Range vectors
@@ -307,7 +316,8 @@ void* rolling_stat_parallel_interface(void* arg_inp){
 
 
 
-void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_out, 
+void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_mean, 
+                                     vector<vector<double>> &arrs_var, 
                                      string method, size_t &w, int num_threads, bool nested_threads){
 
     pthread_t th[arrs_in.size()];
@@ -322,8 +332,8 @@ void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<
     // Each thread has its own arguments
     for(int jj=0; jj<arrs_in.size();jj=jj+N_vect_chunk){
         args[jj].vect      = &arrs_in;
-        args[jj].vect_mean = &arrs_out;
-        args[jj].vect_var  = &arrs_out;
+        args[jj].vect_mean = &arrs_mean;
+        args[jj].vect_var  = &arrs_var;
         args[jj].w         = w;
         args[jj].num_threads = std::max(1,int(num_threads/arrs_in.size()));
         args[jj].vect_start  = jj;
