@@ -40,6 +40,9 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
         }
     }
     for (int jj=0; jj<Svv.size();jj++){ 
+
+        vect_var[jj][start_index] = Svv[jj][jj] - vect_mean[jj][start_index]*vect_mean[jj][start_index];
+
         for(int kk=jj; kk<Svv.size();kk++){
             cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][start_index] *vect_mean[kk][start_index];
         }
@@ -68,6 +71,9 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
                 dummy_mean   = (w*vect_mean[kk][ii-1] - vect[kk][ii-1] + vect[kk][ii+w-1])/w;
                 cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][ii] * dummy_mean;
             }
+
+            vect_var[jj][ii] = Svv[jj][jj] - vect_mean[jj][ii]*vect_mean[jj][ii];
+
         }
 
         for (int jj=0; jj<Svv.size();jj++){ 
