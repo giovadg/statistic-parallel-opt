@@ -27,7 +27,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
         for (int ii=1;ii<vect.size();ii++){end_index = min((int)vect[ii].size(), end_index);};
     }
         
-    double denom, dummy_mean;
+    double denom;
 
     vector<vector<double>> Svv(N_vect, vector<double>(N_vect)), cov_vv(N_vect, vector<double>(N_vect));  
 
@@ -41,7 +41,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
     }
     for (int jj=0; jj<Svv.size();jj++){ 
 
-        vect_var[jj][start_index] = Svv[jj][jj] - vect_mean[jj][start_index]*vect_mean[jj][start_index];
+        vect_var[jj][start_index] = Svv[jj][jj]/w - vect_mean[jj][start_index]*vect_mean[jj][start_index];
 
         for(int kk=jj; kk<Svv.size();kk++){
             cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][start_index] *vect_mean[kk][start_index];
@@ -51,49 +51,63 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
     for (int jj=0; jj<Svv.size();jj++){ 
         arr_out[jj][jj][start_index] = 1;
         for(int kk=jj+1; kk<Svv.size();kk++){
-            denom = sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
+            denom = sqrt(vect_var[jj][start_index]  * vect_var[kk][start_index] );
+            
             arr_out[jj][kk][start_index] = (denom > 0) ? cov_vv[jj][kk]/denom : 0.0;
             arr_out[kk][jj][start_index] = arr_out[jj][kk][start_index];
             if (abs(arr_out[kk][jj][start_index])>1 ) {
                 printf("errore larger than 1.\n");
-                cout<< cov_vv[jj][kk]<< " "<< cov_vv[jj][jj] << " "<< cov_vv[kk][kk]<< " "<< jj<< 
-                        " "<< kk<<" "<<vect[jj][start_index]<< " "<<vect[kk][start_index]<<endl;
+                cout<< cov_vv[jj][kk]<< " "<< vect_var[jj][start_index] << " "<< vect_var[kk][start_index]<< " "<< jj<< " "<< kk<<endl;
             }
         }
     }
 
     // DP part for the rolling window
     for (int ii = start_index+1; ii <= end_index-w; ii++){
-        for (int jj=0; jj<Svv.size();jj++){
-            vect_mean[jj][ii] = (w*vect_mean[jj][ii-1] - vect[jj][ii-1] + vect[jj][ii+w-1])/w;
-            for(int kk=jj; kk<Svv.size();kk++){
-                Svv[jj][kk] += vect[jj][ii+w-1] * vect[kk][ii+w-1] - vect[jj][ii-1] * vect[kk][ii-1];
-                dummy_mean   = (w*vect_mean[kk][ii-1] - vect[kk][ii-1] + vect[kk][ii+w-1])/w;
-                cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][ii] * dummy_mean;
-            }
-            vect_var[jj][ii] = Svv[jj][jj] - vect_mean[jj][ii]*vect_mean[jj][ii];
-        }
 
-        for (int jj=0; jj<Svv.size();jj++){ 
+        {
+            int jj=0;
             arr_out[jj][jj][ii] = 1.0;
+            Svv[jj][jj]      += vect[jj][ii+w-1] * vect[jj][ii+w-1] - vect[jj][ii-1] * vect[jj][ii-1];
+            vect_mean[jj][ii] = (w*vect_mean[jj][ii-1] - vect[jj][ii-1] + vect[jj][ii+w-1])/w;
+            vect_var[jj][ii]  = Svv[jj][jj]/w - vect_mean[jj][ii] * vect_mean[jj][ii];
+
             for(int kk=jj+1; kk<Svv.size();kk++){
-                denom = sqrt(cov_vv[jj][jj] * cov_vv[kk][kk]);
+                Svv[jj][kk] += vect[jj][ii+w-1] * vect[kk][ii+w-1] - vect[jj][ii-1] * vect[kk][ii-1];
+                Svv[kk][kk] += vect[kk][ii+w-1] * vect[kk][ii+w-1] - vect[kk][ii-1] * vect[kk][ii-1];
+                
+                vect_mean[kk][ii] = (w*vect_mean[kk][ii-1] - vect[kk][ii-1] + vect[kk][ii+w-1])/w;
+                cov_vv[jj][kk]   = Svv[jj][kk]/w - vect_mean[jj][ii] * vect_mean[kk][ii];
+                vect_var[kk][ii] = Svv[kk][kk]/w - vect_mean[kk][ii] * vect_mean[kk][ii];
+
+                denom = sqrt(vect_var[jj][ii] * vect_var[kk][ii]);
+
                 arr_out[jj][kk][ii] = (denom > 1e-11) ? cov_vv[jj][kk]/denom : 0.0;
                 arr_out[kk][jj][ii] = arr_out[jj][kk][ii];
-                
+            }
+        }
+
+        for (int jj=1; jj<Svv.size();jj++){
+            arr_out[jj][jj][ii] = 1.0;
+            for(int kk=jj+1; kk<Svv.size();kk++){
+
+                Svv[jj][kk] += vect[jj][ii+w-1] * vect[kk][ii+w-1] - vect[jj][ii-1] * vect[kk][ii-1];
+                cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][ii] * vect_mean[kk][ii];
+
+                denom = sqrt(vect_var[jj][ii] * vect_var[kk][ii]);
+
+                arr_out[jj][kk][ii] = (denom > 1e-11) ? cov_vv[jj][kk]/denom : 0.0;
+                arr_out[kk][jj][ii] = arr_out[jj][kk][ii];
+
                 if (abs(arr_out[kk][jj][ii])>1 ) {
                     printf("error in the algorithm, correlation larger than 1.\n");
-                    cout<< cov_vv[jj][kk]<< " "<< cov_vv[jj][jj] << " "<< cov_vv[kk][kk]<< " "<< jj<< 
-                            " "<< kk<<" "<<vect[jj][ii+w-1]<< " "<<vect[kk][ii+w-1]<<endl;
+                    cout<< cov_vv[jj][kk]<< " "<< vect_var[jj][ii] << " "<< vect_var[kk][ii]<< " "<< jj<< " "<< kk<<endl;
                 }
-
             }
         }
     }
     return;
 }
-
-
 
 
 void rolling_var_exec(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean, 
