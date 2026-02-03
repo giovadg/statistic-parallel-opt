@@ -10,6 +10,7 @@ This project requires the boost library for random number generation
 
 This project implements a small but complete **numerical analytics engine** for time-series data, focusing on:
 
+- Quality of the computation (correlation is computed with Welford-style algo to avoid cancellation problems)
 - Speed: dynamic programming (DP) is used
 - explicit pthread-based parallelism (no OpenMP)
 - predictable performance and low overhead
@@ -18,7 +19,7 @@ This project implements a small but complete **numerical analytics engine** for 
   - scaling as function of vector size
   - scaling as function of rolling window size
   - scaling as function of N threads used
-  - numerical resutls benchmark agains pandas
+  - numerical outputs benchmark agains pandas
   - time-to-solution comparison with pandas
 
 The core use case is repeated feature extraction (rolling statistics) on very large arrays (10⁷–10⁸ points), where Python-level implementations become a bottleneck.
