@@ -13,7 +13,125 @@ using namespace std;
 
 namespace kernels {
 
+// Numerically stable rolling correlation.
+// Implements a Welford-style remove/add update on centered residuals,
+// avoiding catastrophic cancellation present in E[x^2] - E[x]^2 formulations.
+// Computes rolling covariance and correlation in O(1) per step.  
 void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect, 
+                        vector<vector<double>> &vect_mean, 
+                        vector<vector<double>> &vect_var,                         
+                        vector<vector<vector<double>>> &arr_out, size_t &w, int start_index, int end_index){
+
+    int N_vect  = vect.size();
+    int n_ele   = vect[0].size();
+    double inv_w = 1/(double)w;
+    for (int j=0; j<N_vect; ++j) vect_mean[j][start_index] = 0.0;
+
+    if (end_index == -1){
+        end_index = (int)vect[0].size();
+        for (int ii=1;ii<vect.size();ii++){end_index = min((int)vect[ii].size(), end_index);};
+    }
+        
+    double denom;
+
+    vector<vector<double>> Svv(N_vect, vector<double>(N_vect)), cov_vv(N_vect, vector<double>(N_vect));  
+    vector<double> mu_mid(N_vect); 
+
+    for (int ii = start_index; ii < start_index+w; ii++){
+        for (int jj=0; jj<Svv.size();jj++){
+            for(int kk=jj; kk<Svv.size();kk++){
+                Svv[jj][kk] += vect[jj][ii] * vect[kk][ii];
+            }
+           vect_mean[jj][start_index] += vect[jj][ii]/w;
+        }
+    }
+    for (int jj=0; jj<Svv.size();jj++){ 
+
+        vect_var[jj][start_index] = Svv[jj][jj]/w - vect_mean[jj][start_index]*vect_mean[jj][start_index];
+
+        for(int kk=jj; kk<Svv.size();kk++){
+            cov_vv[jj][kk] = Svv[jj][kk]/w - vect_mean[jj][start_index] *vect_mean[kk][start_index];
+        }
+    }
+
+    for (int jj=0; jj<Svv.size();jj++){ 
+        arr_out[jj][jj][start_index] = 1;
+        for(int kk=jj+1; kk<Svv.size();kk++){
+            denom = sqrt(vect_var[jj][start_index]  * vect_var[kk][start_index] );
+            
+            arr_out[jj][kk][start_index] = (denom > 0) ? cov_vv[jj][kk]/denom : 0.0;
+            arr_out[kk][jj][start_index] = arr_out[jj][kk][start_index];
+            if (abs(arr_out[kk][jj][start_index])>1 ) {
+                printf("errore larger than 1.\n");
+                cout<< cov_vv[jj][kk]<< " "<< vect_var[jj][start_index] << " "<< vect_var[kk][start_index]<< " "<< jj<< " "<< kk<<endl;
+            }
+        }
+    }
+
+    // DP part for the rolling window
+    for (int ii = start_index+1; ii <= end_index-w; ii++){
+        double C_mid(0);
+        {
+            
+            int jj=0;
+            arr_out[jj][jj][ii] = 1.0;
+
+            vect_mean[jj][ii] =  vect_mean[jj][ii-1] + inv_w * (vect[jj][ii+w-1] - vect[jj][ii-1]);
+
+            mu_mid[jj]        = (w* vect_mean[jj][ii-1] - vect[jj][ii-1])/(w - 1);
+
+            C_mid            = w*cov_vv[jj][jj] - (vect[jj][ii-1] - vect_mean[jj][ii-1]) * (vect[jj][ii-1] - mu_mid[jj]);
+            cov_vv[jj][jj]   = inv_w * (C_mid    + (vect[jj][ii+w-1]  - mu_mid[jj]) * (vect[jj][ii+w-1]  - vect_mean[jj][ii]));
+            vect_var[jj][ii] = cov_vv[jj][jj];
+            
+            for(int kk=jj+1; kk<cov_vv.size();kk++){
+
+                vect_mean[kk][ii] = vect_mean[kk][ii-1] + inv_w * (vect[kk][ii+w-1] - vect[kk][ii-1]);
+
+                mu_mid[kk]        = (w* vect_mean[kk][ii-1] - vect[kk][ii-1])/(w - 1);
+
+                C_mid            = w * cov_vv[kk][kk] - (vect[kk][ii-1] - vect_mean[kk][ii-1]) * (vect[kk][ii-1] - mu_mid[kk]);
+                cov_vv[kk][kk]   = inv_w * (C_mid    + (vect[kk][ii+w-1]  - mu_mid[kk]) * (vect[kk][ii+w-1]  - vect_mean[kk][ii]));
+                vect_var[kk][ii] = cov_vv[kk][kk];
+
+                C_mid             = w*cov_vv[jj][kk] - (vect[jj][ii-1] - vect_mean[jj][ii-1]) * (vect[kk][ii-1] - mu_mid[kk]);
+                cov_vv[jj][kk]    = inv_w * (C_mid + (vect[jj][ii+w-1] - mu_mid[jj]) * (vect[kk][ii+w-1] - vect_mean[kk][ii]));
+
+                denom = sqrt(vect_var[jj][ii] * vect_var[kk][ii]);
+
+                arr_out[jj][kk][ii] = (denom > 1e-11) ? cov_vv[jj][kk]/denom : 0.0;
+                arr_out[kk][jj][ii] = arr_out[jj][kk][ii];
+            }
+        } ;
+
+        for (int jj=1; jj<Svv.size();jj++){
+            arr_out[jj][jj][ii] = 1.0;
+            for(int kk=jj+1; kk<Svv.size();kk++){
+
+                C_mid             = w*cov_vv[jj][kk] - (vect[jj][ii-1] - vect_mean[jj][ii-1]) * (vect[kk][ii-1] - mu_mid[kk]);
+
+                cov_vv[jj][kk]    = inv_w * (C_mid + (vect[jj][ii+w-1] - mu_mid[jj]) * (vect[kk][ii+w-1] - vect_mean[kk][ii]));
+ 
+                denom = sqrt(vect_var[jj][ii] * vect_var[kk][ii]);
+
+                arr_out[jj][kk][ii] = (denom > 1e-11) ? cov_vv[jj][kk]/denom : 0.0;
+                arr_out[kk][jj][ii] = arr_out[jj][kk][ii];
+
+                if (abs(arr_out[kk][jj][ii])>1 ) {
+                    printf("error in the algorithm, correlation larger than 1.\n");
+                    cout<< cov_vv[jj][kk]<< " "<< vect_var[jj][ii] << " "<< vect_var[kk][ii]<< " "<< jj<< " "<< kk<<endl;
+                }
+            }
+        }
+    }
+    return;
+}
+
+
+// Naive function for computing the corring window correlation:
+// it uses the dynamic programming (DP) on the x_i y_i moment. 
+// Can suffer from cancelletion problem  
+void rolling_mean_corr_exec_mv_simple(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 
                         vector<vector<double>> &vect_var,                         
                         vector<vector<vector<double>>> &arr_out, size_t &w, int start_index, int end_index){
@@ -30,6 +148,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
     double denom;
 
     vector<vector<double>> Svv(N_vect, vector<double>(N_vect)), cov_vv(N_vect, vector<double>(N_vect));  
+    vector<double> mu_mid(N_vect); 
 
     for (int ii = start_index; ii < start_index+w; ii++){
         for (int jj=0; jj<Svv.size();jj++){
