@@ -22,6 +22,8 @@ This project implements a small but complete **numerical analytics engine** for 
   - numerical outputs benchmark agains pandas
   - time-to-solution comparison with pandas
 
+The data can be either internally generated with boost library or imported with .csv or .bin format.
+
 The core use case is repeated feature extraction (rolling statistics) on very large arrays (10⁷–10⁸ points), where Python-level implementations become a bottleneck.
 
 ---
@@ -42,5 +44,19 @@ The core use case is repeated feature extraction (rolling statistics) on very la
 - Deterministic results independent of thread count
 - Standalone benchmark executable
 - Notebook to compare time-to-solution for different threads and coparison against Pandas.
+
+  ## Time-series input
+  - Time series can be either generated internally or imported.
+    ### Internal generation
+    - For internally generate data the user can specify (otherwise default values) number of elements, number of time-series, length of the rolling window, feature required (ie. mean , var, corr).\
+      `./test.exe n_vect=2 n=100000 w=100 num_threads=2 do_corr=1`
+      
+    ### Inported data
+    - Time series can be inported by specifying the name of the file\
+      `./test.exe path=./file.bin w=100 num_threads=2 do_corr=1`
+
+
+  ## Input description:
+  #TODO    
 
 ---
