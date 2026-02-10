@@ -37,7 +37,6 @@ int main(int argc, char** argv) {
   bool do_mean  = ((args.find("do_mean") != args.end())) ? stoull(args["do_mean"]) : false;
   bool do_var   = ((args.find("do_var") != args.end())) ? stoull(args["do_var"]) : false;
   bool do_corr  = ((args.find("do_corr") != args.end())) ? stoull(args["do_corr"]) : false;
-  bool do_corr_1Dout  = ((args.find("do_corr_1Dout") != args.end())) ? stoull(args["do_corr_1Dout"]) : false;
 
 
   vector<vector<double>> x_tot;
@@ -74,9 +73,7 @@ int main(int argc, char** argv) {
     
     if (do_var)  kernels::rolling_var_exec(x_tot, roll_av_ser, roll_var_ser, w);
     
-    if (do_corr) kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_var_ser, roll_corr_ser, w);
-
-    if (do_corr_1Dout) kernels::rolling_mean_corr_exec_mv_1Dout(x_tot, roll_av_ser, roll_var_ser, roll_corr_ser_1D, w);
+    if (do_corr) kernels::rolling_mean_corr_exec_mv(x_tot, roll_av_ser, roll_var_ser, roll_corr_ser_1D, w);
 
 
     auto end  = chrono::high_resolution_clock::now();
@@ -92,9 +89,7 @@ int main(int argc, char** argv) {
 
     if (do_var) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "variance", w, num_threads);
 
-    if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll,  w, num_threads);
-
-    if (do_corr_1Dout) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D,  w, num_threads);
+    if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D,  w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -111,9 +106,7 @@ int main(int argc, char** argv) {
 
     if (do_var)  kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "variance", w, num_threads, nested_threads);
 
-    if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll, w, num_threads);
-
-    if (do_corr_1Dout) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, w, num_threads);
+    if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -156,8 +149,7 @@ int main(int argc, char** argv) {
 
   if (do_mean) in_out::save_stat(roll_av_pll,   "mean.bin");
   if (do_var)  in_out::save_stat(roll_var_pll,  "variance.bin");
-  if (do_corr) in_out::save_stat(roll_corr_pll, "correlation.bin"); 
-  if (do_corr_1Dout) in_out::save_stat(roll_corr_pll_1D, x_tot.size(), x_tot[0].size(), "correlation.bin"); 
+  if (do_corr) in_out::save_stat(roll_corr_pll_1D, x_tot.size(), x_tot[0].size(), "correlation.bin"); 
 
 
   return 0;
