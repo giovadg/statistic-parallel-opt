@@ -58,5 +58,7 @@ The core use case is repeated feature extraction (rolling statistics) on very la
 
   ## Input description:
   #TODO    
+  - Insert quantile search
+  - Move everydata structure to 1D vectors
 
 ---
