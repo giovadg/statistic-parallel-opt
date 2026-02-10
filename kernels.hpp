@@ -27,6 +27,10 @@ void rolling_corr_parallel(const vector<vector<double>> &vect,
                         vector<vector<double>> &vect_mean, vector<vector<double>> &vect_var,
                         vector<vector<vector<double>>> &arr_out, size_t &w, int num_threads);
 
+void rolling_corr_parallel(const std::vector<vector<double>> &vect, vector<vector<double>> &vect_mean,
+                           vector<vector<double>> &vect_var,  vector<double> &arr_out,  size_t &w, int num_threads);
+
+
 void rolling_mean_corr_exec(const vector<vector<double>> &vect, 
                         vector<vector<double>> &tuple_mean, 
                         vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
@@ -37,6 +41,10 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
                         vector<vector<double>> &vect_var,
                         vector<vector<vector<double>>> &arr_out, size_t &w, int start_index=0, int end_index=-1);
 
+void rolling_mean_corr_exec_mv_1Dout(const vector<vector<double>> &vect, 
+                        vector<vector<double>> &vect_mean, 
+                        vector<vector<double>> &vect_var,
+                        vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
 
 void rolling_mean_corr_exec_mv_2(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 

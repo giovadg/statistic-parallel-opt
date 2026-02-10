@@ -183,7 +183,7 @@ void interface_vectors_generation(string path,int n_vect, int n, vector<vector<d
 }
 
 
-void save_stat_impl(const vector<vector<double>>& stat,
+void save_stat(const vector<vector<double>>& stat,
                  const string& fname)
 {
     int  n_vect = stat.size();
@@ -199,7 +199,7 @@ void save_stat_impl(const vector<vector<double>>& stat,
     }
 }
 
-void save_stat_impl(const vector<vector<vector<double>>>& stat,
+void save_stat(const vector<vector<vector<double>>>& stat,
                  const string& fname)
 {
     int  n_vect = stat.size();
@@ -218,5 +218,30 @@ void save_stat_impl(const vector<vector<vector<double>>>& stat,
         }
     }
 }
+
+void save_stat(const std::vector<double>& stat,
+               size_t n_vect,
+               size_t n_el,
+               const std::string& fname)
+{
+    // minimum sanity check
+    if (stat.size() != (size_t)n_vect * n_vect * n_el)
+        throw std::runtime_error("stat size mismatch");
+
+    std::ofstream out(fname, std::ios::binary);
+
+    out.write(reinterpret_cast<const char*>(&n_vect), sizeof(int));
+    out.write(reinterpret_cast<const char*>(&n_vect), sizeof(int));
+    out.write(reinterpret_cast<const char*>(&n_el), sizeof(size_t));
+
+    for (int jj = 0; jj < n_vect; ++jj) {
+        for (int kk = 0; kk < n_vect; ++kk) {
+            const size_t start = (jj * n_vect + kk) * n_el;
+            out.write(reinterpret_cast<const char*>(&stat[start]),
+                      n_el * sizeof(double));
+        }
+    }
+}
+
 
 };

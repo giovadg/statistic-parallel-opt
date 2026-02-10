@@ -21,9 +21,13 @@ void save_stat_impl(const vector<vector<double>>& stat,
 void save_stat_impl(const vector<vector<vector<double>>>& stat,
                  const string& fname);
 
-template <typename T>
-void save_stat(const T& corr, const string& fname)
-{
-    save_stat_impl(corr, fname);
-}
+void save_stat(const std::vector<std::vector<double>>& stat,
+               const std::string& fname);
+
+void save_stat(const std::vector<std::vector<std::vector<double>>>& stat,
+               const std::string& fname);
+
+
+void save_stat(const vector<double>& stat, size_t n_vect, size_t n_el, 
+                 const string& fname);
 }
