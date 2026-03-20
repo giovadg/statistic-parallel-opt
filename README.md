@@ -40,6 +40,7 @@ The core use case is repeated feature extraction (rolling statistics) on very la
   - rolling correlation (serial and parallel) with double implementation:
     -  simple DP corralation function
     -  Welford-style remove/add update on centered residuals DP algo.
+  -  rolling quantile search (serial and parallel using tree datastructure + DP ) 
     
 - Deterministic results independent of thread count
 - Standalone benchmark executable
@@ -58,7 +59,6 @@ The core use case is repeated feature extraction (rolling statistics) on very la
 
   ## Input description:
   #TODO    
-  - Insert quantile search
   - Move everydata structure to 1D vectors
 
 ---
