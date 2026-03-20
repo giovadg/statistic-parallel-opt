@@ -31,12 +31,14 @@ int main(int argc, char** argv) {
 
   string path      = ((args.find("path") != args.end())) ? string(args["path"]) : "none";
   size_t n         = ((args.find("n") != args.end())) ? stoull(args["n"]) : 5000;
-  int    n_vect    = ((args.find("n_vect") != args.end())) ? stoull(args["n_vect"]) : 2;
-  int num_threads  = ((args.find("num_threads") != args.end())) ? stoull(args["num_threads"]) : 1;
-  int Ntest_speed  = ((args.find("Ntest_speed") != args.end())) ? stoull(args["Ntest_speed"]) : 1;
-  bool do_mean  = ((args.find("do_mean") != args.end())) ? stoull(args["do_mean"]) : false;
-  bool do_var   = ((args.find("do_var") != args.end())) ? stoull(args["do_var"]) : false;
-  bool do_corr  = ((args.find("do_corr") != args.end())) ? stoull(args["do_corr"]) : false;
+  int    n_vect    = ((args.find("n_vect") != args.end())) ? stoi(args["n_vect"]) : 2;
+  int num_threads  = ((args.find("num_threads") != args.end())) ? stoi(args["num_threads"]) : 1;
+  int Ntest_speed  = ((args.find("Ntest_speed") != args.end())) ? stoi(args["Ntest_speed"]) : 1;
+  bool do_mean  = ((args.find("do_mean") != args.end())) ? stoi(args["do_mean"]) : false;
+  bool do_qnt  = ((args.find("do_qnt") != args.end())) ? stoi(args["do_qnt"]) : false;
+  bool do_var   = ((args.find("do_var") != args.end())) ? stoi(args["do_var"]) : false;
+  bool do_corr  = ((args.find("do_corr") != args.end())) ? stoi(args["do_corr"]) : false;
+  float  q  = ((args.find("q") != args.end())) ? stof(args["q"]) : 0.5;
 
 
   vector<vector<double>> x_tot;
@@ -58,7 +60,7 @@ int main(int argc, char** argv) {
   size_t dim_vectors = x_tot[0].size(); 
   size_t w         = ((args.find("w") != args.end())) ? stoull(args["w"]) : dim_vectors/10;
 
-  cout <<"variables are: "<<num_threads<<" "<<dim_vectors << " "<<w<<" "<<Ntest_speed<<" "<<path<<endl;
+  cout <<"variables are: "<<num_threads<<" "<<dim_vectors << " "<<w<<" "<<q<< " " <<Ntest_speed<<" "<<path<<endl;
 
   string method;
   unordered_map<string,double> timings;
@@ -70,6 +72,8 @@ int main(int argc, char** argv) {
     auto start = chrono::high_resolution_clock::now();
 
     if (do_mean) kernels::rolling_mean_exec(x_tot, roll_av_ser, w);
+
+    if (do_qnt) kernels::rolling_quantile_exec(x_tot, roll_av_ser, w, q);
     
     if (do_var)  kernels::rolling_var_exec(x_tot, roll_av_ser, roll_var_ser, w);
     
@@ -78,22 +82,24 @@ int main(int argc, char** argv) {
 
     auto end  = chrono::high_resolution_clock::now();
     auto diff = chrono::duration<double>(end-start).count();
-    method = "serial vectors input - serial vector treatment";
+    method = "vectors serialized - single vector time series serial";
     timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
 
     // --------------------------
     // parallel approach: division of arrays in subarrays.
     start = chrono::high_resolution_clock::now();
 
-    if (do_mean)  kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "mean", w, num_threads);
+    if (do_mean)  kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "mean", w, q, num_threads);
 
-    if (do_var) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "variance", w, num_threads);
+    if (do_qnt)  kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "quantile", w, q, num_threads);
+
+    if (do_var) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "variance", w, q, num_threads);
 
     if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D,  w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
-    method = "serial vectors input - parallel vector treatment";
+    method = "vectors serialized - single vector time series parallelized";
     timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
 
 
@@ -102,18 +108,20 @@ int main(int argc, char** argv) {
     for (bool nested_threads : {false,true}){
     start = chrono::high_resolution_clock::now();
 
-    if (do_mean) kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "mean", w, num_threads, nested_threads);
+    if (do_mean) kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "mean", w, q, num_threads, nested_threads);
 
-    if (do_var)  kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "variance", w, num_threads, nested_threads);
+    if (do_qnt) kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "quantile", w, q, num_threads, nested_threads);
+
+    if (do_var)  kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "variance", w, q, num_threads, nested_threads);
 
     if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, w, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
     if (nested_threads){
-      method="parallel vectors input - parallel vector treatment";
+      method="vectors parallelized - single vector time series parallelized";
     }else{
-      method="parallel vectors input - serial vector treatment";
+      method="vectors parallelized - single vector time series serial";
     }
     timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
     }
@@ -148,6 +156,7 @@ int main(int argc, char** argv) {
   }
 
   if (do_mean) in_out::save_stat(roll_av_pll,   "mean.bin");
+  if (do_qnt) in_out::save_stat(roll_av_pll,   "quantile.bin");
   if (do_var)  in_out::save_stat(roll_var_pll,  "variance.bin");
   if (do_corr) in_out::save_stat(roll_corr_pll_1D, x_tot.size(), x_tot[0].size(), "correlation.bin"); 
 

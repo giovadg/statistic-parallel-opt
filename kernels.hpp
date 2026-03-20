@@ -11,16 +11,19 @@ namespace kernels {
 void rolling_mean_exec(const vector<vector<double>> &arrs_in, vector<vector<double>> &arr_out, size_t &w, int start_index=0,
                                  int end_index=-1, int vect_start=0, int vect_end=-1);
 
+void rolling_quantile_exec(const vector<vector<double>> &arrs_in, vector<vector<double>> &arr_out, size_t &w, float q, int start_index=0,
+                                 int end_index=-1, int vect_start=0, int vect_end=-1);
+
 void rolling_var_exec(const vector<vector<double>> &arrs_in, vector<vector<double>> &arr_mean, 
                             vector<vector<double>> &arr_var, size_t &w, int start_index=0,
                                  int end_index=-1, int vect_start=0, int vect_end=-1);
 
 void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean, 
-                            vector<vector<double>> &arr_var, string method, size_t &w,  int num_threads);
+                            vector<vector<double>> &arr_var, string method, size_t &w, float q,  int num_threads);
 
 void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_mean,
                                     vector<vector<double>> &arr_var, string method,
-                                     size_t &w, int num_threads, bool nested_threads);
+                                     size_t &w, float q, int num_threads, bool nested_threads);
 
 
 void rolling_corr_parallel(const vector<vector<double>> &vect, 

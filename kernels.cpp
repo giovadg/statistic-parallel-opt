@@ -8,9 +8,18 @@
 #include <numeric>
 #include <pthread.h>
 #include <iostream>
+#include <ext/pb_ds/assoc_container.hpp>
+#include <ext/pb_ds/tree_policy.hpp>
+using namespace __gnu_pbds;
 
 using namespace std; 
-
+using ordered_tree = tree<
+    pair<double, int>,
+    null_type,
+    less<pair<double, int>>,
+    rb_tree_tag,
+    tree_order_statistics_node_update
+>;
 
 inline size_t idx3(size_t j, size_t k, size_t t,
                    size_t N, size_t T) {
@@ -281,6 +290,8 @@ void rolling_var_exec(const vector<vector<double>> &arr_in, vector<vector<double
 }
 
 
+
+
 void rolling_mean_exec(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_out,
                          size_t &w, int start_index, int end_index, int vect_start, int vect_end){
 
@@ -303,6 +314,35 @@ void rolling_mean_exec(const vector<vector<double>> &arr_in, vector<vector<doubl
     return;
 }
 
+
+void rolling_quantile_exec(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_out,
+                         size_t &w, float q, int start_index, int end_index, int vect_start, int vect_end){
+
+    if (end_index == -1) end_index = (int)arr_in[0].size();
+    if (vect_end  == -1) vect_end  = (int)arr_in.size();
+
+    vector<ordered_tree> windows_matr(vect_end - vect_start);
+    int k = (int)(floor(q * (float)(w - 1)));
+
+    for (int jj = vect_start; jj < vect_end; ++jj) {
+        auto& window = windows_matr[jj - vect_start];
+        auto& x      = arr_in[jj];
+
+        for (int i = start_index; i < start_index + w; ++i) {
+            window.insert({x[i], i});
+        }
+        arr_out[jj][start_index] = window.find_by_order(k)->first;
+    
+        for (int ii=start_index+1; ii<=end_index-w;ii++){
+            window.erase({x[ii-1], ii-1});
+            window.insert({x[ii+w-1], ii+w-1});
+            arr_out[jj][ii] = window.find_by_order(k)->first;
+        }
+    }
+    return;
+}
+
+
 // define the structure of each thread input
 struct Thread_Args {
     const vector<vector<double>>* vect;
@@ -312,6 +352,7 @@ struct Thread_Args {
     vector<vector<double>>* vect_var;
     vector<double>* arr_out_mean;
     size_t w;
+    float q;
     int start_index;
     int end_index;
     int num_threads;
@@ -327,13 +368,16 @@ void* single_thr_exe_interface(void* arg){
 
     // Cast the void pointer to its structure
     Thread_Args* state = static_cast<Thread_Args*>(arg);
-    if (state->method == "mean")         rolling_mean_exec(*state->vect, *state->vect_mean, state->w, state->start_index, state->end_index,
+    if (state->method == "mean")        rolling_mean_exec(*state->vect, *state->vect_mean, state->w, state->start_index, state->end_index,
                                                         state->vect_start, state->vect_end );
 
-    if (state->method == "variance")     rolling_var_exec(*state->vect, *state->vect_mean, *state->vect_var, state->w, state->start_index, state->end_index,
+    if (state->method == "quantile")    rolling_quantile_exec(*state->vect, *state->vect_mean, state->w, state->q, state->start_index, state->end_index,
+                                                        state->vect_start, state->vect_end);
+
+    if (state->method == "variance")    rolling_var_exec(*state->vect, *state->vect_mean, *state->vect_var, state->w, state->start_index, state->end_index,
                                                         state->vect_start, state->vect_end );
 
-    if (state->method == "correlation")  rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->vect_var, *state->arr_out_1D, state->w, state->start_index, state->end_index);
+    if (state->method == "correlation") rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->vect_var, *state->arr_out_1D, state->w, state->start_index, state->end_index);
 
     return nullptr; 
 }
@@ -399,6 +443,7 @@ void* rolling_stat_parallel_interface(void* arg_inp){
         args[jj].vect_mean    = state->vect_mean;
         args[jj].vect_var    = state->vect_var;
         args[jj].w            = state->w;
+        args[jj].q            = state->q;
         args[jj].num_threads  = num_threads;
         args[jj].vect_start   = state->vect_start;
         args[jj].vect_end     = state->vect_end;
@@ -420,7 +465,7 @@ void* rolling_stat_parallel_interface(void* arg_inp){
 }
 
 void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean,
-                         vector<vector<double>> &arr_var, string method, size_t &w, int num_threads){
+                         vector<vector<double>> &arr_var, string method, size_t &w, float q, int num_threads){
 
     // Creation of the sing thread function arguments
     Thread_Args args; 
@@ -429,6 +474,7 @@ void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<d
     args.vect_mean   = &arr_mean;
     args.vect_var    = &arr_var;
     args.w           = w;
+    args.q           = q;
     args.method      = method;
     args.num_threads = num_threads;
     args.vect_start  = 0;
@@ -442,7 +488,7 @@ void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<d
 
 void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_mean, 
                                      vector<vector<double>> &arrs_var, 
-                                     string method, size_t &w, int num_threads, bool nested_threads){
+                                     string method, size_t &w, float q, int num_threads, bool nested_threads){
 
     pthread_t th[arrs_in.size()];
 
@@ -463,6 +509,7 @@ void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<
         args[jj].vect_start  = jj;
         args[jj].vect_end = (jj+N_vect_chunk < N_vect) ? jj+N_vect_chunk : N_vect;
         args[jj].method   = method;
+        args[jj].q        = q;
 
         // Range division
         args[jj].start_index = 0;
