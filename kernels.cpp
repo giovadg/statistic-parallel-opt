@@ -35,7 +35,9 @@ namespace kernels {
 void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 
                         vector<vector<double>> &vect_var,                         
-                        vector<double> &arr_out, size_t &w, int start_index, int end_index){
+                        vector<double> &arr_out, size_t &w, int start_index, int end_index, int vect_start, int vect_end){
+
+    if (vect_end  == -1) vect_end  = vect.size();
 
     int N_vect  = vect.size();
     int n_ele   = vect[0].size();
@@ -53,14 +55,14 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
     vector<double> mu_mid(N_vect); 
 
     for (int ii = start_index; ii < start_index+w; ii++){
-        for (int jj=0; jj<Svv.size();jj++){
+        for (int jj=vect_start; jj<vect_end;jj++){
             for(int kk=jj; kk<Svv.size();kk++){
                 Svv[jj][kk] += vect[jj][ii] * vect[kk][ii];
             }
            vect_mean[jj][start_index] += vect[jj][ii]/w;
         }
     }
-    for (int jj=0; jj<Svv.size();jj++){ 
+    for (int jj=vect_start; jj<vect_end;jj++){ 
 
         vect_var[jj][start_index] = Svv[jj][jj]/w - vect_mean[jj][start_index]*vect_mean[jj][start_index];
 
@@ -69,7 +71,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
         }
     }
 
-    for (int jj=0; jj<Svv.size();jj++){ 
+    for (int jj=vect_start; jj<vect_end;jj++){ 
         arr_out[idx3(jj,jj,start_index,N_vect,n_ele)] = 1;
         for(int kk=jj+1; kk<Svv.size();kk++){
             denom = sqrt(vect_var[jj][start_index]  * vect_var[kk][start_index] );
@@ -89,7 +91,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
         double C_mid(0);
         {
             
-            int jj=0;
+            int jj=vect_start;
             arr_out[idx3(jj,jj,ii,N_vect,n_ele)] = 1;
             vect_mean[jj][ii] =  vect_mean[jj][ii-1] + inv_w * (vect[jj][ii+w-1] - vect[jj][ii-1]);
 
@@ -119,7 +121,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
             }
         } ;
 
-        for (int jj=1; jj<Svv.size();jj++){
+        for (int jj=vect_start+1; jj<vect_end;jj++){
             arr_out[idx3(jj,jj,ii,N_vect,n_ele)] = 1.0;
             for(int kk=jj+1; kk<Svv.size();kk++){
 
@@ -377,20 +379,21 @@ void* single_thr_exe_interface(void* arg){
     if (state->method == "variance")    rolling_var_exec(*state->vect, *state->vect_mean, *state->vect_var, state->w, state->start_index, state->end_index,
                                                         state->vect_start, state->vect_end );
 
-    if (state->method == "correlation") rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->vect_var, *state->arr_out_1D, state->w, state->start_index, state->end_index);
+    if (state->method == "correlation") rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->vect_var, *state->arr_out_1D, state->w, state->start_index, 
+                                                        state->end_index, state->vect_start, state->vect_end);
 
     return nullptr; 
 }
 
 
-void rolling_corr_parallel(const std::vector<vector<double>> &vect,
+void rolling_corr_parallel(const vector<vector<double>> &vect,
                            vector<vector<double>> &vect_mean,
                            vector<vector<double>> &vect_var,
                            vector<double> &arr_out,
                            size_t &w, int num_threads) {
 
-    if (vect.size() < 2)  throw std::runtime_error("rolling_corr_parallel: need at least 2 vectors");
-    if (num_threads <= 0) throw std::runtime_error("rolling_corr_parallel: num_threads must be > 0");
+    if (vect.size() < 2)  throw runtime_error("rolling_corr_parallel: need at least 2 vectors");
+    if (num_threads <= 0) throw runtime_error("rolling_corr_parallel: num_threads must be > 0");
 
     string method = "correlation";
 
@@ -398,7 +401,7 @@ void rolling_corr_parallel(const std::vector<vector<double>> &vect,
     int max_length = (int)vect[0].size();
     for (int ii=1;ii<vect.size();ii++){max_length = min(max_length, (int)vect[ii].size());}
 
-    int threads_to_use = std::min(num_threads, max_length); // evita chunk=0 e range degeneri
+    int threads_to_use = min(num_threads, max_length); // evita chunk=0 e range degeneri
     // int chunk = max(1, (max_length / num_threads));
     int chunk = (max_length + threads_to_use - 1) / threads_to_use; // ceil
 
@@ -412,6 +415,9 @@ void rolling_corr_parallel(const std::vector<vector<double>> &vect,
         args[jj].arr_out_1D = &arr_out;
         args[jj].w          = w;
         args[jj].method     = method;
+        args[jj].vect_start = 0;
+        args[jj].vect_end   = -1;
+        
 
         args[jj].start_index = jj * chunk;
         args[jj].end_index   = min((jj + 1) * chunk + (int)w, max_length);
@@ -483,6 +489,8 @@ void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<d
     rolling_stat_parallel_interface(&args);
     return;
 }
+
+
 
 
 
