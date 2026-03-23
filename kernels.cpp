@@ -35,9 +35,7 @@ namespace kernels {
 void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 
                         vector<vector<double>> &vect_var,                         
-                        vector<double> &arr_out, size_t &w, int start_index, int end_index, int vect_start, int vect_end){
-
-    if (vect_end  == -1) vect_end  = vect.size();
+                        vector<double> &arr_out, size_t &w, int start_index, int end_index){
 
     int N_vect  = vect.size();
     int n_ele   = vect[0].size();
@@ -55,14 +53,14 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
     vector<double> mu_mid(N_vect); 
 
     for (int ii = start_index; ii < start_index+w; ii++){
-        for (int jj=vect_start; jj<vect_end;jj++){
+        for (int jj=0; jj<N_vect;jj++){
             for(int kk=jj; kk<Svv.size();kk++){
                 Svv[jj][kk] += vect[jj][ii] * vect[kk][ii];
             }
            vect_mean[jj][start_index] += vect[jj][ii]/w;
         }
     }
-    for (int jj=vect_start; jj<vect_end;jj++){ 
+    for (int jj=0; jj<N_vect;jj++){ 
 
         vect_var[jj][start_index] = Svv[jj][jj]/w - vect_mean[jj][start_index]*vect_mean[jj][start_index];
 
@@ -71,7 +69,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
         }
     }
 
-    for (int jj=vect_start; jj<vect_end;jj++){ 
+    for (int jj=0; jj<N_vect;jj++){ 
         arr_out[idx3(jj,jj,start_index,N_vect,n_ele)] = 1;
         for(int kk=jj+1; kk<Svv.size();kk++){
             denom = sqrt(vect_var[jj][start_index]  * vect_var[kk][start_index] );
@@ -91,7 +89,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
         double C_mid(0);
         {
             
-            int jj=vect_start;
+            int jj=0;
             arr_out[idx3(jj,jj,ii,N_vect,n_ele)] = 1;
             vect_mean[jj][ii] =  vect_mean[jj][ii-1] + inv_w * (vect[jj][ii+w-1] - vect[jj][ii-1]);
 
@@ -121,7 +119,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
             }
         } ;
 
-        for (int jj=vect_start+1; jj<vect_end;jj++){
+        for (int jj=0+1; jj<N_vect;jj++){
             arr_out[idx3(jj,jj,ii,N_vect,n_ele)] = 1.0;
             for(int kk=jj+1; kk<Svv.size();kk++){
 
@@ -150,6 +148,7 @@ void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect,
 // Naive function for computing the corring window correlation:
 // it uses the dynamic programming (DP) on the x_i y_i moment. 
 // Can suffer from cancelletion problem  
+// DEPRECATED --> Input for vector<vector<vector<double>>> &arr_out IS NOT SUPPORTED ANYMORE
 void rolling_mean_corr_exec_mv_simple(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 
                         vector<vector<double>> &vect_var,                         
@@ -380,55 +379,11 @@ void* single_thr_exe_interface(void* arg){
                                                         state->vect_start, state->vect_end );
 
     if (state->method == "correlation") rolling_mean_corr_exec_mv(*state->vect, *state->vect_mean, *state->vect_var, *state->arr_out_1D, state->w, state->start_index, 
-                                                        state->end_index, state->vect_start, state->vect_end);
+                                                        state->end_index);
 
     return nullptr; 
 }
 
-
-void rolling_corr_parallel(const vector<vector<double>> &vect,
-                           vector<vector<double>> &vect_mean,
-                           vector<vector<double>> &vect_var,
-                           vector<double> &arr_out,
-                           size_t &w, int num_threads) {
-
-    if (vect.size() < 2)  throw runtime_error("rolling_corr_parallel: need at least 2 vectors");
-    if (num_threads <= 0) throw runtime_error("rolling_corr_parallel: num_threads must be > 0");
-
-    string method = "correlation";
-
-
-    int max_length = (int)vect[0].size();
-    for (int ii=1;ii<vect.size();ii++){max_length = min(max_length, (int)vect[ii].size());}
-
-    int threads_to_use = min(num_threads, max_length); // evita chunk=0 e range degeneri
-    // int chunk = max(1, (max_length / num_threads));
-    int chunk = (max_length + threads_to_use - 1) / threads_to_use; // ceil
-
-    pthread_t th[threads_to_use];
-    Thread_Args args[threads_to_use];
-
-    for (int jj = 0; jj < threads_to_use; jj++) {
-        args[jj].vect       = &vect;        // <--- changed
-        args[jj].vect_mean  = &vect_mean;
-        args[jj].vect_var   = &vect_var;
-        args[jj].arr_out_1D = &arr_out;
-        args[jj].w          = w;
-        args[jj].method     = method;
-        args[jj].vect_start = 0;
-        args[jj].vect_end   = -1;
-        
-
-        args[jj].start_index = jj * chunk;
-        args[jj].end_index   = min((jj + 1) * chunk + (int)w, max_length);
-
-        pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
-    }
-
-    for (int jj = 0; jj < threads_to_use; jj++) {
-        pthread_join(th[jj], NULL);
-    }
-}
 
 
 void* rolling_stat_parallel_interface(void* arg_inp){
@@ -437,6 +392,9 @@ void* rolling_stat_parallel_interface(void* arg_inp){
 
     int num_threads = state->num_threads;
     int chunk = ((int)(*state->vect)[0].size())/(num_threads);
+
+    int max_length = (int)(*state->vect)[0].size();
+    for (int ii=1;ii< (*state->vect).size();ii++){max_length = min(max_length, (int)(*state->vect)[ii].size());}
 
     pthread_t th[num_threads];
 
@@ -449,6 +407,7 @@ void* rolling_stat_parallel_interface(void* arg_inp){
         args[jj].vect_mean    = state->vect_mean;
         args[jj].vect_var    = state->vect_var;
         args[jj].w            = state->w;
+        args[jj].arr_out_1D = state->arr_out_1D;
         args[jj].q            = state->q;
         args[jj].num_threads  = num_threads;
         args[jj].vect_start   = state->vect_start;
@@ -457,7 +416,7 @@ void* rolling_stat_parallel_interface(void* arg_inp){
 
         // Range division
         args[jj].start_index = jj * chunk;
-        args[jj].end_index = (jj == num_threads - 1) ? (*state->vect)[0].size() : (jj + 1) * chunk+state->w;        
+        args[jj].end_index   = min((jj + 1) * chunk + (int)state->w, max_length);
 
         pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
     }
@@ -470,17 +429,22 @@ void* rolling_stat_parallel_interface(void* arg_inp){
     return nullptr;
 }
 
+
+
 void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean,
-                         vector<vector<double>> &arr_var, string method, size_t &w, float q, int num_threads){
+                         vector<vector<double>> &arr_var, vector<double> &arr_out, string method, size_t &w, 
+                         float q, int num_threads){
 
     // Creation of the sing thread function arguments
     Thread_Args args; 
 
     args.vect        = &arr_in;
+    args.vect        = &arr_in;
     args.vect_mean   = &arr_mean;
     args.vect_var    = &arr_var;
+    args.arr_out_1D  = &arr_out;
     args.w           = w;
-    args.q           = q;
+    args.q           = 0;
     args.method      = method;
     args.num_threads = num_threads;
     args.vect_start  = 0;
@@ -491,11 +455,8 @@ void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<d
 }
 
 
-
-
-
 void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_mean, 
-                                     vector<vector<double>> &arrs_var, 
+                                     vector<vector<double>> &arrs_var, vector<double> &arr_out, 
                                      string method, size_t &w, float q, int num_threads, bool nested_threads){
 
     pthread_t th[arrs_in.size()];
@@ -509,13 +470,16 @@ void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<
 
     // Each thread has its own arguments
     for(int jj=0; jj<arrs_in.size();jj=jj+N_vect_chunk){
-        args[jj].vect      = &arrs_in;
-        args[jj].vect_mean = &arrs_mean;
-        args[jj].vect_var  = &arrs_var;
-        args[jj].w         = w;
+        args[jj].vect        = &arrs_in;
+        args[jj].vect_mean   = &arrs_mean;
+        args[jj].vect_var    = &arrs_var;
+        args[jj].w           = w;
+        args[jj].arr_out_1D  = &arr_out;
+
         args[jj].num_threads = std::max(1,int(num_threads/arrs_in.size()));
         args[jj].vect_start  = jj;
         args[jj].vect_end = (jj+N_vect_chunk < N_vect) ? jj+N_vect_chunk : N_vect;
+
         args[jj].method   = method;
         args[jj].q        = q;
 
@@ -529,7 +493,8 @@ void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<
             pthread_create(&th[jj], NULL, &rolling_stat_parallel_interface, &args[jj]);
         }else{         
             pthread_create(&th[jj], NULL, &single_thr_exe_interface, &args[jj]);
-        }
+            }
+        
     }
 
     // wait for threads to finish

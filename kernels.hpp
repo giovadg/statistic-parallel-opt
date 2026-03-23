@@ -18,11 +18,14 @@ void rolling_var_exec(const vector<vector<double>> &arrs_in, vector<vector<doubl
                             vector<vector<double>> &arr_var, size_t &w, int start_index=0,
                                  int end_index=-1, int vect_start=0, int vect_end=-1);
 
+// void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean, 
+//                             vector<vector<double>> &arr_var, string method, size_t &w, float q,  int num_threads);
+
 void rolling_stat_parallel(const vector<vector<double>> &arr_in, vector<vector<double>> &arr_mean, 
-                            vector<vector<double>> &arr_var, string method, size_t &w, float q,  int num_threads);
+                            vector<vector<double>> &arr_var, vector<double> &arr_out, string method, size_t &w, float q, int num_threads);
 
 void rolling_stat_parallel_nested(const vector<vector<double>> &arrs_in, vector<vector<double>> &arrs_mean,
-                                    vector<vector<double>> &arr_var, string method,
+                                    vector<vector<double>> &arr_var, vector<double> &arr_out, string method,
                                      size_t &w, float q, int num_threads, bool nested_threads);
 
 
@@ -47,7 +50,7 @@ void rolling_mean_corr_exec(const vector<vector<double>> &vect,
 void rolling_mean_corr_exec_mv(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 
                         vector<vector<double>> &vect_var,
-                        vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1, int vect_start=0, int vect_end=-1);
+                        vector<double> &arr_out, size_t &w, int start_index=0, int end_index=-1);
 
 void rolling_mean_corr_exec_mv_2(const vector<vector<double>> &vect, 
                         vector<vector<double>> &vect_mean, 

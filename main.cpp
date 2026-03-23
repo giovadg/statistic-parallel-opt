@@ -43,6 +43,7 @@ int main(int argc, char** argv) {
 
   vector<vector<double>> x_tot;
   vector<vector<double>> roll_av_ser, roll_av_pll;
+  vector<vector<double>> roll_qnt_ser, roll_qnt_pll;
   vector<vector<double>> roll_var_ser, roll_var_pll;
   vector<vector<vector<double>>> roll_corr_ser, roll_corr_pll; 
   vector<double> roll_corr_ser_1D, roll_corr_pll_1D; 
@@ -50,8 +51,19 @@ int main(int argc, char** argv) {
   in_out::interface_vectors_generation(path, n_vect, n, x_tot, roll_av_ser, roll_av_pll,
                                            roll_var_ser, roll_var_pll, roll_corr_ser, roll_corr_pll);
 
-  roll_corr_ser_1D.resize(roll_av_ser.size() * roll_av_ser.size() * roll_av_ser[0].size());
-  roll_corr_pll_1D.resize(roll_av_ser.size() * roll_av_ser.size() * roll_av_ser[0].size());
+  if (do_corr) {
+    roll_corr_ser_1D.resize(roll_av_ser.size() * roll_av_ser.size() * roll_av_ser[0].size());
+    roll_corr_pll_1D.resize(roll_av_ser.size() * roll_av_ser.size() * roll_av_ser[0].size());
+  }
+  if(do_qnt){
+    roll_qnt_ser.resize(roll_av_ser.size());
+    roll_qnt_pll.resize(roll_av_ser.size());
+    for (size_t ii=0; ii<roll_av_ser.size();ii++) {
+      roll_qnt_ser[(int)ii].resize(roll_av_ser[(int)ii].size());
+      roll_qnt_pll[(int)ii].resize(roll_av_ser[(int)ii].size());      
+      }
+  }
+
 
   if (x_tot.empty()) {
     std::cerr << "Error: void vectors \n";
@@ -73,7 +85,7 @@ int main(int argc, char** argv) {
 
     if (do_mean) kernels::rolling_mean_exec(x_tot, roll_av_ser, w);
 
-    if (do_qnt) kernels::rolling_quantile_exec(x_tot, roll_av_ser, w, q);
+    if (do_qnt) kernels::rolling_quantile_exec(x_tot, roll_qnt_ser, w, q);
     
     if (do_var)  kernels::rolling_var_exec(x_tot, roll_av_ser, roll_var_ser, w);
     
@@ -89,13 +101,13 @@ int main(int argc, char** argv) {
     // parallel approach: division of arrays in subarrays.
     start = chrono::high_resolution_clock::now();
 
-    if (do_mean)  kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "mean", w, q, num_threads);
+    if (do_mean)  kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, "mean", w, q, num_threads);
 
-    if (do_qnt)  kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "quantile", w, q, num_threads);
+    if (do_qnt)  kernels::rolling_stat_parallel(x_tot, roll_qnt_pll, roll_var_pll, roll_corr_pll_1D, "quantile", w, q, num_threads);
 
-    if (do_var) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, "variance", w, q, num_threads);
+    if (do_var) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, "variance", w, q, num_threads);
 
-    if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D,  w, num_threads);
+    if (do_corr) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, "correlation", w, q, num_threads);
 
     end  = chrono::high_resolution_clock::now();
     diff = chrono::duration<double>(end-start).count();
@@ -106,24 +118,28 @@ int main(int argc, char** argv) {
     // parallel approach: parallelized on the different arrays
     // if nested: each array divided also in subarray - not applicable for correlation -
     for (bool nested_threads : {false,true}){
+
     start = chrono::high_resolution_clock::now();
 
-    if (do_mean) kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "mean", w, q, num_threads, nested_threads);
+    if (do_mean) kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, "mean", w, q, num_threads, nested_threads);
 
-    if (do_qnt) kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "quantile", w, q, num_threads, nested_threads);
+    if (do_qnt) kernels::rolling_stat_parallel_nested(x_tot, roll_qnt_pll, roll_var_pll, roll_corr_pll_1D, "quantile", w, q, num_threads, nested_threads);
 
-    if (do_var)  kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, "variance", w, q, num_threads, nested_threads);
+    if (do_var)  kernels::rolling_stat_parallel_nested(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, "variance", w, q, num_threads, nested_threads);
 
-    if (do_corr) kernels::rolling_corr_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, w, num_threads);
+    // DOUBLE PARALLELISM NOT AVAILABLE YET ON CORRELATION
+    // if (do_corr) kernels::rolling_stat_parallel(x_tot, roll_av_pll, roll_var_pll, roll_corr_pll_1D, "correlation", w, q, num_threads);
 
-    end  = chrono::high_resolution_clock::now();
-    diff = chrono::duration<double>(end-start).count();
-    if (nested_threads){
-      method="vectors parallelized - single vector time series parallelized";
-    }else{
-      method="vectors parallelized - single vector time series serial";
+    if (!do_corr){
+      end  = chrono::high_resolution_clock::now();
+      diff = chrono::duration<double>(end-start).count();
+      if (nested_threads){
+        method="vectors parallelized - single vector time series parallelized";
+      }else{
+        method="vectors parallelized - single vector time series serial";
+      }
+      timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
     }
-    timings[method] = (timings.find(method) != timings.end())? timings[method] + diff : timings[method] = diff;
     }
 
   };
@@ -156,7 +172,7 @@ int main(int argc, char** argv) {
   }
 
   if (do_mean) in_out::save_stat(roll_av_pll,   "mean.bin");
-  if (do_qnt) in_out::save_stat(roll_av_pll,   "quantile.bin");
+  if (do_qnt) in_out::save_stat(roll_qnt_pll,   "quantile.bin");
   if (do_var)  in_out::save_stat(roll_var_pll,  "variance.bin");
   if (do_corr) in_out::save_stat(roll_corr_pll_1D, x_tot.size(), x_tot[0].size(), "correlation.bin"); 
 
